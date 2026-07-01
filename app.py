@@ -21,8 +21,6 @@ import torch
 import torch.nn.functional as F
 import segmentation_models_pytorch as smp
 
-from ultralytics import YOLO
-
 from feedback import render_feedback_widget, create_feedback_zip
 
 # ── Page config ───────────────────────────────────────────────────────────────
@@ -77,7 +75,12 @@ row_cols      = st.sidebar.selectbox("Images per row", [2, 3, 4], index=1)
 def load_yolo(path):
     if not Path(path).exists():
         return None
-    return YOLO(str(path))
+    try:
+        from ultralytics import YOLO
+        return YOLO(str(path))
+    except Exception as e:
+        st.warning(f"YOLO unavailable ({e}); running UNet on full image.")
+        return None
 
 
 @st.cache_resource
