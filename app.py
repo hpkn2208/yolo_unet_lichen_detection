@@ -12,17 +12,14 @@ import hashlib
 from pathlib import Path
 from datetime import datetime
 
-import cv2
 import numpy as np
 import streamlit as st
-from PIL import Image
+from PIL import Image, ImageDraw
+from skimage import measure
 
 import torch
 import torch.nn.functional as F
 import segmentation_models_pytorch as smp
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
-from ultralytics import YOLO
 
 from ultralytics import YOLO
 
@@ -47,16 +44,15 @@ PALETTE = {
     2: np.array([ 50, 200,  80], dtype=np.uint8),   # other  — green
 }
 
-val_tf = A.Compose([
-    A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-    ToTensorV2(),
-])
+_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
-tta_tfs = [
-    A.Compose([A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)), ToTensorV2()]),
-    A.Compose([A.HorizontalFlip(p=1), A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)), ToTensorV2()]),
-    A.Compose([A.VerticalFlip(p=1),   A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)), ToTensorV2()]),
-]
+def _to_tensor(img_rgb, hflip=False, vflip=False):
+    x = img_rgb.astype(np.float32) / 255.0
+    if hflip: x = x[:, ::-1, :]
+    if vflip: x = x[::-1, :, :]
+    x = (x - _MEAN) / _STD
+    return torch.from_numpy(x.transpose(2, 0, 1).copy())
 
 # ── Sidebar settings ──────────────────────────────────────────────────────────
 st.sidebar.header("Settings")
@@ -81,7 +77,12 @@ row_cols      = st.sidebar.selectbox("Images per row", [2, 3, 4], index=1)
 def load_yolo(path):
     if not Path(path).exists():
         return None
-    return YOLO(str(path))
+    try:
+        from ultralytics import YOLO
+        return YOLO(str(path))
+    except Exception as e:
+        st.warning(f"YOLO unavailable ({e}); running UNet on full image.")
+        return None
 
 
 @st.cache_resource
@@ -113,26 +114,26 @@ def remove_small_blobs(pred_mask, min_pixels):
         return pred_mask
     out    = pred_mask.copy()
     lichen = (pred_mask == 1).astype(np.uint8)
-    n, labels, stats, _ = cv2.connectedComponentsWithStats(lichen, connectivity=8)
-    for i in range(1, n):
-        if stats[i, cv2.CC_STAT_AREA] < min_pixels:
-            out[labels == i] = 0
+    labeled = measure.label(lichen, connectivity=2)
+    for region in measure.regionprops(labeled):
+        if region.area < min_pixels:
+            out[labeled == region.label] = 0
     return out
 
 
 def predict_unet(models, img_rgb, lichen_threshold, use_tta, device):
     """Return (pred H×W, probs C×H×W) from ensemble average."""
-    tfs = tta_tfs if use_tta else [val_tf]
+    augments = [(False, False), (True, False), (False, True)] if use_tta else [(False, False)]
     probs_sum = None
     with torch.no_grad():
         for m in models:
-            for i, tf in enumerate(tfs):
-                t = tf(image=img_rgb)["image"].unsqueeze(0).to(device)
+            for i, (hflip, vflip) in enumerate(augments):
+                t = _to_tensor(img_rgb, hflip, vflip).unsqueeze(0).to(device)
                 p = F.softmax(m(t), dim=1).squeeze(0).cpu()
-                if i == 1: p = p.flip(-1)   # undo hflip
-                if i == 2: p = p.flip(-2)   # undo vflip
+                if hflip: p = p.flip(-1)   # undo hflip
+                if vflip: p = p.flip(-2)   # undo vflip
                 probs_sum = p if probs_sum is None else probs_sum + p
-    probs = (probs_sum / (len(models) * len(tfs))).numpy()  # C×H×W
+    probs = (probs_sum / (len(models) * len(augments))).numpy()  # C×H×W
 
     pred = np.zeros((IMG_SIZE, IMG_SIZE), dtype=np.uint8)
     pred[probs[1] >= lichen_threshold] = 1
@@ -148,11 +149,15 @@ def draw_overlay(img_rgb, pred, alpha=0.45):
         if m.any():
             out[m] = (img_rgb[m] * (1 - alpha) + color * alpha).astype(np.uint8)
     # draw contour outlines
+    pil_out = Image.fromarray(out)
+    draw = ImageDraw.Draw(pil_out)
     for cls, color in PALETTE.items():
-        binary = (pred == cls).astype(np.uint8)
-        cnts, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(out, cnts, -1, color.tolist(), 2)
-    return out
+        binary = (pred == cls).astype(float)
+        for cnt in measure.find_contours(binary, 0.5):
+            pts = [(float(c[1]), float(c[0])) for c in cnt]
+            if len(pts) > 1:
+                draw.line(pts + [pts[0]], fill=tuple(color.tolist()), width=2)
+    return np.array(pil_out)
 
 
 def yolo_crop(yolo_model, img_bgr, conf, padding):
@@ -245,7 +250,7 @@ for i in range(0, len(uploaded_files), row_cols):
     for j, uf in enumerate(uploaded_files[i:i + row_cols]):
         img_pil  = Image.open(uf).convert("RGB")
         img_rgb  = np.array(img_pil)
-        img_bgr  = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+        img_bgr  = img_rgb[:, :, ::-1]
         H, W     = img_rgb.shape[:2]
         iid      = image_id(uf.name)
 
@@ -288,14 +293,14 @@ for i in range(0, len(uploaded_files), row_cols):
                 # Run UNet on each detected crop, paste back
                 for (x1, y1, x2, y2) in yolo_boxes:
                     crop_rgb = img_rgb[y1:y2, x1:x2]
-                    crop_256 = cv2.resize(crop_rgb, (IMG_SIZE, IMG_SIZE))
+                    crop_256 = np.array(Image.fromarray(crop_rgb).resize((IMG_SIZE, IMG_SIZE)))
                     pred_256, probs_256 = predict_unet(
                         unet_models, crop_256, lichen_thresh, use_tta, DEVICE)
                     pred_256 = remove_small_blobs(pred_256, min_blob_px)
 
                     # Resize pred back to crop size and paste into canvas
-                    pred_crop = cv2.resize(
-                        pred_256, (x2 - x1, y2 - y1), interpolation=cv2.INTER_NEAREST)
+                    pred_crop = np.array(Image.fromarray(pred_256).resize(
+                        (x2 - x1, y2 - y1), Image.NEAREST))
                     full_pred[y1:y2, x1:x2] = np.maximum(
                         full_pred[y1:y2, x1:x2], pred_crop)
 
@@ -304,16 +309,15 @@ for i in range(0, len(uploaded_files), row_cols):
                     show_image(vis_crop, f"Crop ({x1},{y1})→({x2},{y2})")
             else:
                 # No YOLO detection or gate disabled — full image
-                img_256 = cv2.resize(img_rgb, (IMG_SIZE, IMG_SIZE))
+                img_256 = np.array(Image.fromarray(img_rgb).resize((IMG_SIZE, IMG_SIZE)))
                 pred_256, probs_256 = predict_unet(
                     unet_models, img_256, lichen_thresh, use_tta, DEVICE)
                 pred_256 = remove_small_blobs(pred_256, min_blob_px)
-                full_pred = cv2.resize(
-                    pred_256, (W, H), interpolation=cv2.INTER_NEAREST)
+                full_pred = np.array(Image.fromarray(pred_256).resize((W, H), Image.NEAREST))
 
             # ── Overlay on original resolution ────────────────────────────
-            overlay_rgb = draw_overlay(img_rgb, cv2.resize(
-                full_pred, (W, H), interpolation=cv2.INTER_NEAREST))
+            overlay_rgb = draw_overlay(
+                img_rgb, np.array(Image.fromarray(full_pred).resize((W, H), Image.NEAREST)))
 
             lichen_pct = (full_pred == 1).mean() * 100
             other_pct  = (full_pred == 2).mean() * 100
