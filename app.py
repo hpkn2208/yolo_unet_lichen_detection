@@ -24,6 +24,8 @@ import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from ultralytics import YOLO
 
+from ultralytics import YOLO
+
 from feedback import render_feedback_widget, create_feedback_zip
 
 # ── Page config ───────────────────────────────────────────────────────────────
