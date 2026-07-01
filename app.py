@@ -21,7 +21,7 @@ import torch
 import torch.nn.functional as F
 import segmentation_models_pytorch as smp
 
-from ultralytics import YOLO
+# from ultralytics import YOLO
 
 from feedback import render_feedback_widget, create_feedback_zip
 
