@@ -20,8 +20,6 @@ from skimage import measure
 import torch
 import torch.nn.functional as F
 import segmentation_models_pytorch as smp
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
 
 from ultralytics import YOLO
 
@@ -46,16 +44,15 @@ PALETTE = {
     2: np.array([ 50, 200,  80], dtype=np.uint8),   # other  — green
 }
 
-val_tf = A.Compose([
-    A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
-    ToTensorV2(),
-])
+_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+_STD  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
-tta_tfs = [
-    A.Compose([A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)), ToTensorV2()]),
-    A.Compose([A.HorizontalFlip(p=1), A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)), ToTensorV2()]),
-    A.Compose([A.VerticalFlip(p=1),   A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)), ToTensorV2()]),
-]
+def _to_tensor(img_rgb, hflip=False, vflip=False):
+    x = img_rgb.astype(np.float32) / 255.0
+    if hflip: x = x[:, ::-1, :]
+    if vflip: x = x[::-1, :, :]
+    x = (x - _MEAN) / _STD
+    return torch.from_numpy(x.transpose(2, 0, 1).copy())
 
 # ── Sidebar settings ──────────────────────────────────────────────────────────
 st.sidebar.header("Settings")
@@ -121,17 +118,17 @@ def remove_small_blobs(pred_mask, min_pixels):
 
 def predict_unet(models, img_rgb, lichen_threshold, use_tta, device):
     """Return (pred H×W, probs C×H×W) from ensemble average."""
-    tfs = tta_tfs if use_tta else [val_tf]
+    augments = [(False, False), (True, False), (False, True)] if use_tta else [(False, False)]
     probs_sum = None
     with torch.no_grad():
         for m in models:
-            for i, tf in enumerate(tfs):
-                t = tf(image=img_rgb)["image"].unsqueeze(0).to(device)
+            for i, (hflip, vflip) in enumerate(augments):
+                t = _to_tensor(img_rgb, hflip, vflip).unsqueeze(0).to(device)
                 p = F.softmax(m(t), dim=1).squeeze(0).cpu()
-                if i == 1: p = p.flip(-1)   # undo hflip
-                if i == 2: p = p.flip(-2)   # undo vflip
+                if hflip: p = p.flip(-1)   # undo hflip
+                if vflip: p = p.flip(-2)   # undo vflip
                 probs_sum = p if probs_sum is None else probs_sum + p
-    probs = (probs_sum / (len(models) * len(tfs))).numpy()  # C×H×W
+    probs = (probs_sum / (len(models) * len(augments))).numpy()  # C×H×W
 
     pred = np.zeros((IMG_SIZE, IMG_SIZE), dtype=np.uint8)
     pred[probs[1] >= lichen_threshold] = 1
