@@ -12,10 +12,10 @@ import hashlib
 from pathlib import Path
 from datetime import datetime
 
-import cv2
 import numpy as np
 import streamlit as st
-from PIL import Image
+from PIL import Image, ImageDraw
+from skimage import measure
 
 import torch
 import torch.nn.functional as F
@@ -112,10 +112,10 @@ def remove_small_blobs(pred_mask, min_pixels):
         return pred_mask
     out    = pred_mask.copy()
     lichen = (pred_mask == 1).astype(np.uint8)
-    n, labels, stats, _ = cv2.connectedComponentsWithStats(lichen, connectivity=8)
-    for i in range(1, n):
-        if stats[i, cv2.CC_STAT_AREA] < min_pixels:
-            out[labels == i] = 0
+    labeled = measure.label(lichen, connectivity=2)
+    for region in measure.regionprops(labeled):
+        if region.area < min_pixels:
+            out[labeled == region.label] = 0
     return out
 
 
@@ -147,11 +147,15 @@ def draw_overlay(img_rgb, pred, alpha=0.45):
         if m.any():
             out[m] = (img_rgb[m] * (1 - alpha) + color * alpha).astype(np.uint8)
     # draw contour outlines
+    pil_out = Image.fromarray(out)
+    draw = ImageDraw.Draw(pil_out)
     for cls, color in PALETTE.items():
-        binary = (pred == cls).astype(np.uint8)
-        cnts, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(out, cnts, -1, color.tolist(), 2)
-    return out
+        binary = (pred == cls).astype(float)
+        for cnt in measure.find_contours(binary, 0.5):
+            pts = [(float(c[1]), float(c[0])) for c in cnt]
+            if len(pts) > 1:
+                draw.line(pts + [pts[0]], fill=tuple(color.tolist()), width=2)
+    return np.array(pil_out)
 
 
 def yolo_crop(yolo_model, img_bgr, conf, padding):
@@ -244,7 +248,7 @@ for i in range(0, len(uploaded_files), row_cols):
     for j, uf in enumerate(uploaded_files[i:i + row_cols]):
         img_pil  = Image.open(uf).convert("RGB")
         img_rgb  = np.array(img_pil)
-        img_bgr  = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+        img_bgr  = img_rgb[:, :, ::-1]
         H, W     = img_rgb.shape[:2]
         iid      = image_id(uf.name)
 
@@ -287,14 +291,14 @@ for i in range(0, len(uploaded_files), row_cols):
                 # Run UNet on each detected crop, paste back
                 for (x1, y1, x2, y2) in yolo_boxes:
                     crop_rgb = img_rgb[y1:y2, x1:x2]
-                    crop_256 = cv2.resize(crop_rgb, (IMG_SIZE, IMG_SIZE))
+                    crop_256 = np.array(Image.fromarray(crop_rgb).resize((IMG_SIZE, IMG_SIZE)))
                     pred_256, probs_256 = predict_unet(
                         unet_models, crop_256, lichen_thresh, use_tta, DEVICE)
                     pred_256 = remove_small_blobs(pred_256, min_blob_px)
 
                     # Resize pred back to crop size and paste into canvas
-                    pred_crop = cv2.resize(
-                        pred_256, (x2 - x1, y2 - y1), interpolation=cv2.INTER_NEAREST)
+                    pred_crop = np.array(Image.fromarray(pred_256).resize(
+                        (x2 - x1, y2 - y1), Image.NEAREST))
                     full_pred[y1:y2, x1:x2] = np.maximum(
                         full_pred[y1:y2, x1:x2], pred_crop)
 
@@ -303,16 +307,15 @@ for i in range(0, len(uploaded_files), row_cols):
                     show_image(vis_crop, f"Crop ({x1},{y1})→({x2},{y2})")
             else:
                 # No YOLO detection or gate disabled — full image
-                img_256 = cv2.resize(img_rgb, (IMG_SIZE, IMG_SIZE))
+                img_256 = np.array(Image.fromarray(img_rgb).resize((IMG_SIZE, IMG_SIZE)))
                 pred_256, probs_256 = predict_unet(
                     unet_models, img_256, lichen_thresh, use_tta, DEVICE)
                 pred_256 = remove_small_blobs(pred_256, min_blob_px)
-                full_pred = cv2.resize(
-                    pred_256, (W, H), interpolation=cv2.INTER_NEAREST)
+                full_pred = np.array(Image.fromarray(pred_256).resize((W, H), Image.NEAREST))
 
             # ── Overlay on original resolution ────────────────────────────
-            overlay_rgb = draw_overlay(img_rgb, cv2.resize(
-                full_pred, (W, H), interpolation=cv2.INTER_NEAREST))
+            overlay_rgb = draw_overlay(
+                img_rgb, np.array(Image.fromarray(full_pred).resize((W, H), Image.NEAREST)))
 
             lichen_pct = (full_pred == 1).mean() * 100
             other_pct  = (full_pred == 2).mean() * 100
