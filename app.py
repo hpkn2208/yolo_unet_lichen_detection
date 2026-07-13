@@ -29,7 +29,7 @@ from feedback import render_feedback_widget, create_feedback_zip
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Oral Lichen Detector", layout="wide")
-st.title("Oral Lichen Detection — Stage 3")
+st.title("Oral Lichen Detection — YOLOv8-seg + Unet")
 st.write("YOLO gate → 5-fold UNet ensemble segmentation")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
@@ -72,6 +72,10 @@ use_tta       = st.sidebar.checkbox("Test-time augmentation (TTA)", value=True,
                                      help="Average hflip+vflip predictions — ~1% F1 boost")
 use_yolo_gate = st.sidebar.checkbox("Enable YOLO gate", value=True,
                                      help="Uncheck to run UNet on full image without YOLO crop")
+show_yolo_roi = st.sidebar.checkbox("Show YOLO ROI crops", value=True,
+                                     help="Display the cropped lesion region(s) YOLO detected")
+show_feedback = st.sidebar.checkbox("Show feedback section", value=True,
+                                     help="Display the per-image feedback widget")
 row_cols      = st.sidebar.selectbox("Images per row", [2, 3, 4], index=1)
 
 # ── Model loaders ─────────────────────────────────────────────────────────────
@@ -154,13 +158,13 @@ def draw_overlay(img_rgb, pred, alpha=0.45):
     return out
 
 
-def yolo_crop(yolo_model, img_bgr, conf, padding):
+def yolo_crop(yolo_model, img_bgr, conf, padding, device=None):
     """
     Run YOLO on full image.
     Returns list of (x1,y1,x2,y2) padded bboxes, or None if no detection.
     """
     H, W = img_bgr.shape[:2]
-    results = yolo_model(img_bgr, conf=conf, verbose=False)[0]
+    results = yolo_model(img_bgr, conf=conf, verbose=False, device=device)[0]
     if results.boxes is None or len(results.boxes) == 0:
         return None
     boxes = []
@@ -189,6 +193,90 @@ def show_image(arr, caption=None):
 
 def image_id(filename):
     return hashlib.md5(filename.encode()).hexdigest()[:12]
+
+
+def run_inference(yolo_model, unet_models, img_rgb, img_bgr,
+                   use_yolo_gate, yolo_conf, yolo_padding,
+                   lichen_thresh, use_tta, min_blob_px, device):
+    """Run the YOLO gate + UNet ensemble pipeline on one image.
+
+    If the GPU runs out of memory, retries the same image on CPU
+    instead of crashing the app.
+
+    Returns a dict with:
+        yolo_boxes, yolo_detected, full_pred, overlay_rgb,
+        lichen_pct, other_pct, crop_results (list of (bbox, vis_crop))
+    """
+    try:
+        return _run_inference_impl(
+            yolo_model, unet_models, img_rgb, img_bgr,
+            use_yolo_gate, yolo_conf, yolo_padding,
+            lichen_thresh, use_tta, min_blob_px, device,
+        )
+    except torch.cuda.OutOfMemoryError:
+        torch.cuda.empty_cache()
+        st.warning("GPU out of memory — retrying this image on CPU.")
+        cpu_unet_models = load_unet_ensemble(str(UNET_DIR), N_FOLDS, "cpu")
+        return _run_inference_impl(
+            yolo_model, cpu_unet_models, img_rgb, img_bgr,
+            use_yolo_gate, yolo_conf, yolo_padding,
+            lichen_thresh, use_tta, min_blob_px, torch.device("cpu"),
+            yolo_device="cpu",
+        )
+
+
+def _run_inference_impl(yolo_model, unet_models, img_rgb, img_bgr,
+                         use_yolo_gate, yolo_conf, yolo_padding,
+                         lichen_thresh, use_tta, min_blob_px, device,
+                         yolo_device=None):
+    H, W = img_rgb.shape[:2]
+
+    yolo_boxes = None
+    if use_yolo_gate and yolo_model:
+        yolo_boxes = yolo_crop(yolo_model, img_bgr, yolo_conf, yolo_padding, device=yolo_device)
+    yolo_detected = yolo_boxes is not None
+
+    full_pred = np.zeros((H, W), dtype=np.uint8)
+    crop_results = []
+
+    if yolo_boxes:
+        for (x1, y1, x2, y2) in yolo_boxes:
+            crop_rgb = img_rgb[y1:y2, x1:x2]
+            crop_256 = cv2.resize(crop_rgb, (IMG_SIZE, IMG_SIZE))
+            pred_256, probs_256 = predict_unet(
+                unet_models, crop_256, lichen_thresh, use_tta, device)
+            pred_256 = remove_small_blobs(pred_256, min_blob_px)
+
+            pred_crop = cv2.resize(
+                pred_256, (x2 - x1, y2 - y1), interpolation=cv2.INTER_NEAREST)
+            full_pred[y1:y2, x1:x2] = np.maximum(
+                full_pred[y1:y2, x1:x2], pred_crop)
+
+            vis_crop = draw_overlay(crop_256, pred_256)
+            crop_results.append(((x1, y1, x2, y2), vis_crop))
+    else:
+        img_256 = cv2.resize(img_rgb, (IMG_SIZE, IMG_SIZE))
+        pred_256, probs_256 = predict_unet(
+            unet_models, img_256, lichen_thresh, use_tta, device)
+        pred_256 = remove_small_blobs(pred_256, min_blob_px)
+        full_pred = cv2.resize(
+            pred_256, (W, H), interpolation=cv2.INTER_NEAREST)
+
+    overlay_rgb = draw_overlay(img_rgb, cv2.resize(
+        full_pred, (W, H), interpolation=cv2.INTER_NEAREST))
+
+    lichen_pct = (full_pred == 1).mean() * 100
+    other_pct = (full_pred == 2).mean() * 100
+
+    return {
+        "yolo_boxes":    yolo_boxes,
+        "yolo_detected": yolo_detected,
+        "full_pred":     full_pred,
+        "overlay_rgb":   overlay_rgb,
+        "lichen_pct":    float(lichen_pct),
+        "other_pct":     float(other_pct),
+        "crop_results":  crop_results,
+    }
 
 
 # ── Load models ───────────────────────────────────────────────────────────────
@@ -253,13 +341,21 @@ for i in range(0, len(uploaded_files), row_cols):
             st.markdown(f"#### {uf.name}")
             show_image(img_rgb, "Original")
 
-            # ── YOLO gate ─────────────────────────────────────────────────
-            yolo_boxes    = None
-            yolo_detected = False
+            # ── Run model pipeline ───────────────────────────────────────
+            result = run_inference(
+                yolo_model, unet_models, img_rgb, img_bgr,
+                use_yolo_gate, yolo_conf, yolo_padding,
+                lichen_thresh, use_tta, min_blob_px, DEVICE,
+            )
+            yolo_boxes    = result["yolo_boxes"]
+            yolo_detected = result["yolo_detected"]
+            full_pred     = result["full_pred"]
+            overlay_rgb   = result["overlay_rgb"]
+            lichen_pct    = result["lichen_pct"]
+            other_pct     = result["other_pct"]
 
+            # ── YOLO gate status ──────────────────────────────────────────
             if use_yolo_gate and yolo_model:
-                yolo_boxes = yolo_crop(yolo_model, img_bgr, yolo_conf, yolo_padding)
-                yolo_detected = yolo_boxes is not None
                 if yolo_detected:
                     st.markdown(
                         f"<span style='color:#2ecc71;font-weight:bold'>"
@@ -278,44 +374,10 @@ for i in range(0, len(uploaded_files), row_cols):
                     unsafe_allow_html=True,
                 )
 
-            # ── UNet ensemble ─────────────────────────────────────────────
-            # Build canvas at original resolution
-            full_pred  = np.zeros((H, W), dtype=np.uint8)
-            full_probs = np.zeros((NUM_CLASSES, H, W), dtype=np.float32)
-
-            if yolo_boxes:
-                # Run UNet on each detected crop, paste back
-                for (x1, y1, x2, y2) in yolo_boxes:
-                    crop_rgb = img_rgb[y1:y2, x1:x2]
-                    crop_256 = cv2.resize(crop_rgb, (IMG_SIZE, IMG_SIZE))
-                    pred_256, probs_256 = predict_unet(
-                        unet_models, crop_256, lichen_thresh, use_tta, DEVICE)
-                    pred_256 = remove_small_blobs(pred_256, min_blob_px)
-
-                    # Resize pred back to crop size and paste into canvas
-                    pred_crop = cv2.resize(
-                        pred_256, (x2 - x1, y2 - y1), interpolation=cv2.INTER_NEAREST)
-                    full_pred[y1:y2, x1:x2] = np.maximum(
-                        full_pred[y1:y2, x1:x2], pred_crop)
-
-                    # Visualise crop with bounding box
-                    vis_crop = draw_overlay(crop_256, pred_256)
+            # ── Crop visualisations ──────────────────────────────────────
+            if show_yolo_roi:
+                for (x1, y1, x2, y2), vis_crop in result["crop_results"]:
                     show_image(vis_crop, f"Crop ({x1},{y1})→({x2},{y2})")
-            else:
-                # No YOLO detection or gate disabled — full image
-                img_256 = cv2.resize(img_rgb, (IMG_SIZE, IMG_SIZE))
-                pred_256, probs_256 = predict_unet(
-                    unet_models, img_256, lichen_thresh, use_tta, DEVICE)
-                pred_256 = remove_small_blobs(pred_256, min_blob_px)
-                full_pred = cv2.resize(
-                    pred_256, (W, H), interpolation=cv2.INTER_NEAREST)
-
-            # ── Overlay on original resolution ────────────────────────────
-            overlay_rgb = draw_overlay(img_rgb, cv2.resize(
-                full_pred, (W, H), interpolation=cv2.INTER_NEAREST))
-
-            lichen_pct = (full_pred == 1).mean() * 100
-            other_pct  = (full_pred == 2).mean() * 100
 
             if lichen_pct > 0.5:
                 st.markdown(
@@ -351,9 +413,10 @@ for i in range(0, len(uploaded_files), row_cols):
                 "unet":  f"{len(unet_models)}-fold ensemble (efficientnet-b0)",
                 "tta":   use_tta,
             }
-            render_feedback_widget(
-                col, img_rgb, overlay_rgb, iid,
-                predictions, uf.name, models_used,
-            )
+            if show_feedback:
+                render_feedback_widget(
+                    col, img_rgb, overlay_rgb, iid,
+                    predictions, uf.name, models_used,
+                )
 
 st.success("Done.")
