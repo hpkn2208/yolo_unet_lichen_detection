@@ -28,9 +28,12 @@ from ultralytics import YOLO
 from feedback import render_feedback_widget, create_feedback_zip
 
 # ── Page config ───────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Oral Lichen Detector", layout="wide")
-st.title("Oral Lichen Detection — YOLOv8-seg + Unet")
+MODEL_VERSION = "UNet_v1.0"
+
+st.set_page_config(page_title="AI Model Evaluation", layout="wide")
+st.title("AI Model Evaluation — YOLOv8-seg + Unet")
 st.write("YOLO gate → 5-fold UNet ensemble segmentation")
+st.caption(f"Model Version: {MODEL_VERSION}")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 MODEL_DIR   = Path("models")
@@ -255,9 +258,13 @@ def _run_inference_impl(yolo_model, unet_models, img_rgb, img_bgr,
             vis_crop = draw_overlay(crop_256, pred_256)
             crop_results.append(((x1, y1, x2, y2), vis_crop))
     else:
+        # YOLO found nothing → UNet runs on full image with stricter threshold
+        # to reduce false positives on normal tissue
+        yolo_missed = use_yolo_gate and yolo_model is not None
+        fallback_thresh = min(lichen_thresh + 0.15, 0.95) if yolo_missed else lichen_thresh
         img_256 = cv2.resize(img_rgb, (IMG_SIZE, IMG_SIZE))
         pred_256, probs_256 = predict_unet(
-            unet_models, img_256, lichen_thresh, use_tta, device)
+            unet_models, img_256, fallback_thresh, use_tta, device)
         pred_256 = remove_small_blobs(pred_256, min_blob_px)
         full_pred = cv2.resize(
             pred_256, (W, H), interpolation=cv2.INTER_NEAREST)
@@ -363,9 +370,10 @@ for i in range(0, len(uploaded_files), row_cols):
                         unsafe_allow_html=True,
                     )
                 else:
+                    fallback_thresh = min(lichen_thresh + 0.10, 0.95)
                     st.markdown(
-                        "<span style='color:#e67e22;font-weight:bold'>"
-                        "⚠ YOLO: no lesion detected — running UNet on full image</span>",
+                        f"<span style='color:#e67e22;font-weight:bold'>"
+                        f"⚠ YOLO: no lesion detected — UNet on full image (stricter threshold: {fallback_thresh:.2f})</span>",
                         unsafe_allow_html=True,
                     )
             else:
