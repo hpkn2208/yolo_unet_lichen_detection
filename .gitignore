@@ -1,2 +1,4 @@
 .agents/
 .claude/
+.streamlit/secrets.toml
+feedback_data.zip

@@ -25,7 +25,7 @@ from albumentations.pytorch import ToTensorV2
 
 from ultralytics import YOLO
 
-from feedback import render_feedback_widget, create_feedback_zip
+from feedback import render_feedback_widget, create_feedback_zip, init_feedback_table
 
 # ── Page config ───────────────────────────────────────────────────────────────
 MODEL_VERSION = "UNet_v1.0"
@@ -33,6 +33,10 @@ MODEL_VERSION = "UNet_v1.0"
 st.set_page_config(page_title="AI Model Evaluation", layout="wide")
 st.title("AI Model Evaluation — YOLOv8-seg + Unet")
 st.write("YOLO gate → 5-fold UNet ensemble segmentation")
+
+if "feedback_table_ready" not in st.session_state:
+    init_feedback_table()
+    st.session_state["feedback_table_ready"] = True
 st.caption(f"Model Version: {MODEL_VERSION}")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
@@ -404,6 +408,19 @@ for i in range(0, len(uploaded_files), row_cols):
                     f"<span style='color:#2ecc71'>Other lesion: {other_pct:.1f}%</span>",
                     unsafe_allow_html=True,
                 )
+
+            # Single discrete label per image, using the same area-based rule as the
+            # case app's image_label_and_confidence(): whichever class covers more area
+            # wins, unless both are under 0.5% in which case it's Normal. Kept separate
+            # from the two area readouts above (which stay independent/non-exclusive) —
+            # this is purely for building a confusion matrix against ground truth.
+            if lichen_pct < 0.5 and other_pct < 0.5:
+                eval_label = "Normal"
+            elif lichen_pct >= other_pct:
+                eval_label = "OLP"
+            else:
+                eval_label = "Other"
+            st.markdown(f"**Evaluation label:** {eval_label}")
 
             show_image(overlay_rgb, "🔴 Lichen  🟢 Other")
 

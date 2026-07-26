@@ -1,57 +1,84 @@
-import streamlit as st
-import numpy as np
-from PIL import Image
 import json
+import uuid
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 
+import numpy as np
+import streamlit as st
+from sqlalchemy import create_engine, text
 
-def resolve_folder(feedback_type, reason=None):
-    base = Path("feedback_data")
+import storage
+
+CATEGORY_MAP = {
+    "YOLO missed lesion": "YOLO_FN",
+    "YOLO false alarm": "YOLO_FP",
+    "Wrong lichen mask": "UNet_Bad_Mask",
+    "Wrong class": "UNet_Wrong_Class",
+}
+
+
+@lru_cache(maxsize=1)
+def _engine():
+    return create_engine(st.secrets["postgres_url"])
+
+
+def init_feedback_table() -> None:
+    with _engine().begin() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS feedback (
+                id TEXT PRIMARY KEY,
+                image_id TEXT NOT NULL,
+                original_filename TEXT,
+                category TEXT NOT NULL,
+                feedback_type TEXT NOT NULL,
+                reason TEXT,
+                correct_class TEXT,
+                original_path TEXT NOT NULL,
+                overlay_path TEXT,
+                predictions TEXT,
+                models_used TEXT,
+                created_at TEXT NOT NULL
+            )
+        """))
+
+
+def resolve_category(feedback_type, reason=None):
     if feedback_type == "Correct":
-        folder = base / "Success_Data"
-    elif feedback_type == "Incorrect":
-        mapping = {
-            "YOLO missed lesion":   base / "YOLO_FN",
-            "YOLO false alarm":     base / "YOLO_FP",
-            "Wrong lichen mask":    base / "UNet_Bad_Mask",
-            "Wrong class":          base / "UNet_Wrong_Class",
-        }
-        folder = mapping.get(reason, base / "General_Feedback")
-    else:
-        folder = base / "General_Feedback"
-    folder.mkdir(parents=True, exist_ok=True)
-    return folder
+        return "Success_Data"
+    if feedback_type == "Incorrect":
+        return CATEGORY_MAP.get(reason, "General_Feedback")
+    return "General_Feedback"
 
 
 def save_feedback(image_array, overlay_array, image_id, feedback_type,
                   reason, correct_class, predictions, uploaded_filename, models_used):
-    folder = resolve_folder(feedback_type, reason)
-    ts     = datetime.now().strftime("%Y%m%d_%H%M%S")
+    category = resolve_category(feedback_type, reason)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
-    img_path     = folder / f"{image_id}_{ts}_original.png"
-    overlay_path = folder / f"{image_id}_{ts}_overlay.png"
-    meta_path    = folder / f"{image_id}_{ts}_meta.json"
-
-    Image.fromarray(image_array.astype(np.uint8)).save(img_path)
+    original_key = storage.upload_image(image_array, f"{category}/{image_id}_{ts}_original.png")
+    overlay_key = None
     if overlay_array is not None:
-        Image.fromarray(overlay_array.astype(np.uint8)).save(overlay_path)
+        overlay_key = storage.upload_image(overlay_array, f"{category}/{image_id}_{ts}_overlay.png")
 
-    meta = {
-        "image_id":          image_id,
-        "original_filename": uploaded_filename,
-        "feedback":          feedback_type,
-        "reason":            reason,
-        "correct_class":     correct_class,
-        "timestamp":         datetime.now().isoformat(),
-        "predictions":       predictions,
-        "models_used":       models_used,
-    }
-    with open(meta_path, "w") as f:
-        json.dump(meta, f, indent=2)
+    with _engine().begin() as conn:
+        conn.execute(
+            text("""INSERT INTO feedback
+                    (id, image_id, original_filename, category, feedback_type, reason,
+                     correct_class, original_path, overlay_path, predictions, models_used, created_at)
+                    VALUES (:id, :image_id, :original_filename, :category, :feedback_type, :reason,
+                            :correct_class, :original_path, :overlay_path, :predictions, :models_used, :created_at)"""),
+            {
+                "id": str(uuid.uuid4()), "image_id": image_id, "original_filename": uploaded_filename,
+                "category": category, "feedback_type": feedback_type, "reason": reason,
+                "correct_class": correct_class, "original_path": original_key, "overlay_path": overlay_key,
+                "predictions": json.dumps(predictions), "models_used": json.dumps(models_used or {}),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
 
-    return str(img_path)
+    return original_key
 
 
 def render_feedback_widget(col, image_array, overlay_array, image_id,
@@ -111,14 +138,14 @@ def render_feedback_widget(col, image_array, overlay_array, image_id,
 
 
 def create_feedback_zip():
-    feedback_dir = Path("feedback_data")
-    if not feedback_dir.exists() or not any(feedback_dir.rglob("*")):
+    keys = storage.list_keys()
+    if not keys:
         return None
     zip_path = Path("feedback_data.zip")
     if zip_path.exists():
         zip_path.unlink()
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for p in feedback_dir.rglob("*"):
-            if p.is_file():
-                zf.write(p, p.relative_to(feedback_dir.parent))
+        for key in keys:
+            arcname = key[len(storage.PREFIX) + 1:]  # strip "research-app/" prefix
+            zf.writestr(arcname, storage.download_bytes(key))
     return zip_path
