@@ -67,9 +67,9 @@ tta_tfs = [
 # ── Sidebar settings ──────────────────────────────────────────────────────────
 st.sidebar.header("Settings")
 
-yolo_conf     = st.sidebar.slider("YOLO confidence threshold", 0.05, 0.50, 0.15, 0.05,
+yolo_conf     = st.sidebar.slider("YOLO confidence threshold", 0.05, 0.50, 0.35, 0.05,
                                    help="Lower = catch more lesions (fewer FN), higher = fewer false alarms")
-yolo_padding  = st.sidebar.slider("YOLO crop padding (px)", 0, 100, 40, 10,
+yolo_padding  = st.sidebar.slider("YOLO crop padding (px)", 0, 100, 80, 10,
                                    help="Extra pixels around detected bbox before sending to UNet")
 lichen_thresh = st.sidebar.slider("Lichen probability threshold", 0.30, 0.90, 0.65, 0.05,
                                    help="Min lichen softmax prob to colour a pixel red")
