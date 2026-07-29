@@ -44,7 +44,7 @@ MODEL_DIR   = Path("models")
 YOLO_PT     = MODEL_DIR / "yolo_best.pt"
 UNET_DIR    = MODEL_DIR / "unet_folds"
 N_FOLDS     = 5
-IMG_SIZE    = 256
+IMG_SIZE    = 384
 NUM_CLASSES = 3
 DEVICE      = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -79,7 +79,7 @@ use_tta       = st.sidebar.checkbox("Test-time augmentation (TTA)", value=True,
                                      help="Average hflip+vflip predictions — ~1% F1 boost")
 use_yolo_gate = st.sidebar.checkbox("Enable YOLO gate", value=True,
                                      help="Uncheck to run UNet on full image without YOLO crop")
-show_yolo_roi = st.sidebar.checkbox("Show YOLO ROI crops", value=True,
+show_yolo_roi = st.sidebar.checkbox("Show YOLO ROI crops", value=False,
                                      help="Display the cropped lesion region(s) YOLO detected")
 show_feedback = st.sidebar.checkbox("Show feedback section", value=True,
                                      help="Display the per-image feedback widget")
