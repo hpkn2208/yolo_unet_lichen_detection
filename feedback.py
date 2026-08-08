@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 import uuid
 import zipfile
@@ -138,14 +140,32 @@ def render_feedback_widget(col, image_array, overlay_array, image_id,
 
 
 def create_feedback_zip():
+    """Bundles every feedback image AND its metadata (label, category, correct
+    class, predictions, timestamp — the full `feedback` table) into one ZIP, so
+    anyone with access to this app can self-serve the complete training-ready
+    dataset without needing Supabase access or running a separate script."""
     keys = storage.list_keys()
     if not keys:
         return None
+
     zip_path = Path("feedback_data.zip")
     if zip_path.exists():
         zip_path.unlink()
+
+    with _engine().connect() as conn:
+        rows = conn.execute(text("SELECT * FROM feedback ORDER BY created_at")).mappings().all()
+
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for key in keys:
             arcname = key[len(storage.PREFIX) + 1:]  # strip "research-app/" prefix
             zf.writestr(arcname, storage.download_bytes(key))
+
+        if rows:
+            csv_buf = io.StringIO()
+            writer = csv.DictWriter(csv_buf, fieldnames=list(rows[0].keys()))
+            writer.writeheader()
+            for row in rows:
+                writer.writerow(dict(row))
+            zf.writestr("metadata.csv", csv_buf.getvalue())
+
     return zip_path
