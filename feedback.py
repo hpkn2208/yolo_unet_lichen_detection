@@ -139,6 +139,22 @@ def render_feedback_widget(col, image_array, overlay_array, image_id,
             st.info("Fill in feedback options to enable submit.")
 
 
+def count_feedback() -> int:
+    with _engine().connect() as conn:
+        return conn.execute(text("SELECT COUNT(*) FROM feedback")).scalar()
+
+
+def delete_all_feedback() -> None:
+    """Permanently removes every feedback row and its R2 images. Cannot be undone."""
+    with _engine().begin() as conn:
+        original_keys = conn.execute(text("SELECT original_path FROM feedback")).scalars().all()
+        overlay_keys = conn.execute(text("SELECT overlay_path FROM feedback WHERE overlay_path IS NOT NULL")).scalars().all()
+        conn.execute(text("DELETE FROM feedback"))
+
+    for key in [*original_keys, *overlay_keys]:
+        storage.delete_image(key)
+
+
 def create_feedback_zip():
     """Bundles every feedback image AND its metadata (label, category, correct
     class, predictions, timestamp — the full `feedback` table) into one ZIP, so

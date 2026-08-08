@@ -25,7 +25,10 @@ from albumentations.pytorch import ToTensorV2
 
 from ultralytics import YOLO
 
-from feedback import render_feedback_widget, create_feedback_zip, init_feedback_table
+from feedback import (
+    render_feedback_widget, create_feedback_zip, init_feedback_table,
+    count_feedback, delete_all_feedback,
+)
 
 # ── Page config ───────────────────────────────────────────────────────────────
 MODEL_VERSION = "UNet_v1.0"
@@ -322,6 +325,18 @@ if st.sidebar.button("Download Feedback ZIP"):
             )
     else:
         st.sidebar.info("No feedback yet.")
+
+# ── Danger zone ────────────────────────────────────────────────────────────────
+feedback_count = count_feedback()
+if feedback_count:
+    with st.sidebar.expander("⚠️ Danger zone"):
+        st.warning("This permanently deletes every feedback entry and its images. This cannot be undone.")
+        st.caption(f"{feedback_count} feedback entries currently stored.")
+        confirm_delete = st.checkbox("I understand this will permanently delete all feedback data")
+        if st.button("Remove All Feedback", disabled=not confirm_delete):
+            delete_all_feedback()
+            st.success("All feedback removed.")
+            st.rerun()
 
 st.divider()
 
