@@ -31,8 +31,6 @@ from feedback import (
 )
 
 # ── Page config ───────────────────────────────────────────────────────────────
-MODEL_VERSION = "UNet_v1.0"
-
 st.set_page_config(page_title="AI Model Evaluation", layout="wide")
 st.title("AI Model Evaluation — YOLOv8-seg + Unet")
 st.write("YOLO gate → 5-fold UNet ensemble segmentation")
@@ -40,12 +38,14 @@ st.write("YOLO gate → 5-fold UNet ensemble segmentation")
 if "feedback_table_ready" not in st.session_state:
     init_feedback_table()
     st.session_state["feedback_table_ready"] = True
-st.caption(f"Model Version: {MODEL_VERSION}")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 MODEL_DIR   = Path("models")
 YOLO_PT     = MODEL_DIR / "yolo_best.pt"
-UNET_DIR    = MODEL_DIR / "unet_folds"
+UNET_VERSIONS = {
+    "v1 (original)": {"dir": "unet_folds",    "label": "UNet_v1.0"},
+    "v2 (fine-tuned)": {"dir": "unet_folds_v2", "label": "UNet_v2.0"},
+}
 N_FOLDS     = 5
 IMG_SIZE    = 384
 NUM_CLASSES = 3
@@ -69,6 +69,14 @@ tta_tfs = [
 
 # ── Sidebar settings ──────────────────────────────────────────────────────────
 st.sidebar.header("Settings")
+
+unet_version_choice = st.sidebar.selectbox(
+    "UNet model version", list(UNET_VERSIONS.keys()), index=0,
+    help="v1 = original 5-fold ensemble. v2 = fine-tuned on old+new combined data.",
+)
+UNET_DIR      = MODEL_DIR / UNET_VERSIONS[unet_version_choice]["dir"]
+MODEL_VERSION = UNET_VERSIONS[unet_version_choice]["label"]
+st.sidebar.caption(f"Model Version: {MODEL_VERSION}")
 
 yolo_conf     = st.sidebar.slider("YOLO confidence threshold", 0.05, 0.50, 0.15, 0.05,
                                    help="Lower = catch more lesions (fewer FN), higher = fewer false alarms")
@@ -303,11 +311,11 @@ with st.sidebar:
         st.success(f"YOLO loaded ({YOLO_PT.name})")
     else:
         st.warning(f"YOLO not found: {YOLO_PT}")
-    st.success(f"UNet: {len(unet_models)}/{N_FOLDS} folds loaded")
+    st.success(f"UNet ({MODEL_VERSION}): {len(unet_models)}/{N_FOLDS} folds loaded")
     st.info(f"Device: {DEVICE}")
 
 if not unet_models:
-    st.error("No UNet checkpoints found. Place them in models/unet_folds/UNet_fold{{k}}_best.pth")
+    st.error(f"No UNet checkpoints found in {UNET_DIR}/UNet_fold{{k}}_best.pth")
     st.stop()
 
 # ── Feedback download ─────────────────────────────────────────────────────────
@@ -450,7 +458,7 @@ for i in range(0, len(uploaded_files), row_cols):
             }
             models_used = {
                 "yolo":  YOLO_PT.name if yolo_model else None,
-                "unet":  f"{len(unet_models)}-fold ensemble (efficientnet-b0)",
+                "unet":  f"{len(unet_models)}-fold ensemble (efficientnet-b0, {MODEL_VERSION})",
                 "tta":   use_tta,
             }
             if show_feedback:
