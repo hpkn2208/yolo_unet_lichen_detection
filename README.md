@@ -151,8 +151,8 @@ Open `http://localhost:8501` in your browser.
 
 | Control | Default | Description |
 |---|---|---|
-| YOLO confidence | 0.35 | Lower catches more lesions, higher reduces false alarms |
-| YOLO crop padding | 80 px | Extra margin around detected bbox before UNet |
+| YOLO confidence | 0.15 | Lower catches more lesions, higher reduces false alarms |
+| YOLO crop padding | 40 px | Extra margin around detected bbox before UNet |
 | Lichen threshold | 0.65 | Min softmax probability to classify a pixel as lichen |
 | Min blob pixels | 200 | Remove lichen predictions smaller than this area |
 | TTA | On | Test-time augmentation (flip ensemble at inference) |
