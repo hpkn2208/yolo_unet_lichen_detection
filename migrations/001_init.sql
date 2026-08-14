@@ -14,5 +14,12 @@ CREATE TABLE IF NOT EXISTS feedback (
     overlay_path TEXT,
     predictions TEXT,
     models_used TEXT,
+    comment TEXT,
+    evidence_paths TEXT,  -- JSON array of R2 keys, e.g. biopsy/lab report attachments
     created_at TEXT NOT NULL
 );
+
+-- Backfill for a table created before comment/evidence-attachment support existed
+-- (feedback.py::init_feedback_table() also runs these on every app boot).
+ALTER TABLE feedback ADD COLUMN IF NOT EXISTS comment TEXT;
+ALTER TABLE feedback ADD COLUMN IF NOT EXISTS evidence_paths TEXT;

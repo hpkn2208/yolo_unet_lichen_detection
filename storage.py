@@ -42,6 +42,13 @@ def upload_image(image_array: np.ndarray, key: str) -> str:
     return full_key
 
 
+def upload_file(data: bytes, key: str, content_type: str = "application/octet-stream") -> str:
+    """Uploads raw bytes as-is (e.g. a PDF or photo attachment). Returns the full object key to store in the DB."""
+    full_key = f"{PREFIX}/{key}"
+    _client().put_object(Bucket=_bucket(), Key=full_key, Body=data, ContentType=content_type)
+    return full_key
+
+
 def get_image_url(key: str, expires_in: int = 3600) -> str:
     """Pre-signed URL so st.image() can load the (private) object directly."""
     return _client().generate_presigned_url(

@@ -41,9 +41,14 @@ def init_feedback_table() -> None:
                 overlay_path TEXT,
                 predictions TEXT,
                 models_used TEXT,
+                comment TEXT,
+                evidence_paths TEXT,
                 created_at TEXT NOT NULL
             )
         """))
+        # Backfill for tables created before comment/evidence-attachment support existed.
+        conn.execute(text("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS comment TEXT"))
+        conn.execute(text("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS evidence_paths TEXT"))
 
 
 def resolve_category(feedback_type, reason=None):
@@ -55,7 +60,8 @@ def resolve_category(feedback_type, reason=None):
 
 
 def save_feedback(image_array, overlay_array, image_id, feedback_type,
-                  reason, correct_class, predictions, uploaded_filename, models_used):
+                  reason, correct_class, predictions, uploaded_filename, models_used,
+                  comment=None, evidence_files=None):
     category = resolve_category(feedback_type, reason)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
@@ -64,18 +70,30 @@ def save_feedback(image_array, overlay_array, image_id, feedback_type,
     if overlay_array is not None:
         overlay_key = storage.upload_image(overlay_array, f"{category}/{image_id}_{ts}_overlay.png")
 
+    evidence_keys = []
+    for i, ef in enumerate(evidence_files or []):
+        ext = Path(ef.name).suffix or ".bin"
+        evidence_keys.append(storage.upload_file(
+            ef.getvalue(), f"{category}/{image_id}_{ts}_evidence_{i}{ext}",
+            content_type=ef.type or "application/octet-stream",
+        ))
+
     with _engine().begin() as conn:
         conn.execute(
             text("""INSERT INTO feedback
                     (id, image_id, original_filename, category, feedback_type, reason,
-                     correct_class, original_path, overlay_path, predictions, models_used, created_at)
+                     correct_class, original_path, overlay_path, predictions, models_used,
+                     comment, evidence_paths, created_at)
                     VALUES (:id, :image_id, :original_filename, :category, :feedback_type, :reason,
-                            :correct_class, :original_path, :overlay_path, :predictions, :models_used, :created_at)"""),
+                            :correct_class, :original_path, :overlay_path, :predictions, :models_used,
+                            :comment, :evidence_paths, :created_at)"""),
             {
                 "id": str(uuid.uuid4()), "image_id": image_id, "original_filename": uploaded_filename,
                 "category": category, "feedback_type": feedback_type, "reason": reason,
                 "correct_class": correct_class, "original_path": original_key, "overlay_path": overlay_key,
                 "predictions": json.dumps(predictions), "models_used": json.dumps(models_used or {}),
+                "comment": comment or None,
+                "evidence_paths": json.dumps(evidence_keys) if evidence_keys else None,
                 "created_at": datetime.now(timezone.utc).isoformat(),
             },
         )
@@ -125,12 +143,25 @@ def render_feedback_widget(col, image_array, overlay_array, image_id,
             else:
                 can_submit = bool(reason)
 
+        comment = st.text_area(
+            "Additional comments (optional)",
+            key=f"comment_{image_id}",
+            placeholder="Explain your assessment, add clinical context, etc.",
+        )
+        evidence_files = st.file_uploader(
+            "Attach evidence — biopsy report, lab test, confirmed diagnosis (optional)",
+            key=f"evidence_{image_id}",
+            type=["png", "jpg", "jpeg", "pdf"],
+            accept_multiple_files=True,
+        )
+
         if can_submit:
             if st.button("Submit Feedback", key=sub_key, use_container_width=True):
                 try:
                     save_feedback(image_array, overlay_array, image_id,
                                   feedback, reason, correct_class,
-                                  predictions, uploaded_filename, models_used or {})
+                                  predictions, uploaded_filename, models_used or {},
+                                  comment=comment, evidence_files=evidence_files)
                     st.session_state[done_key] = True
                     st.rerun()
                 except Exception as e:
@@ -145,13 +176,16 @@ def count_feedback() -> int:
 
 
 def delete_all_feedback() -> None:
-    """Permanently removes every feedback row and its R2 images. Cannot be undone."""
+    """Permanently removes every feedback row and its R2 images (originals, overlays,
+    and evidence attachments). Cannot be undone."""
     with _engine().begin() as conn:
         original_keys = conn.execute(text("SELECT original_path FROM feedback")).scalars().all()
         overlay_keys = conn.execute(text("SELECT overlay_path FROM feedback WHERE overlay_path IS NOT NULL")).scalars().all()
+        evidence_blobs = conn.execute(text("SELECT evidence_paths FROM feedback WHERE evidence_paths IS NOT NULL")).scalars().all()
         conn.execute(text("DELETE FROM feedback"))
 
-    for key in [*original_keys, *overlay_keys]:
+    evidence_keys = [key for blob in evidence_blobs for key in json.loads(blob)]
+    for key in [*original_keys, *overlay_keys, *evidence_keys]:
         storage.delete_image(key)
 
 
