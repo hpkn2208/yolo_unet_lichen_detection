@@ -63,8 +63,8 @@ if st.sidebar.button("Switch user"):
 MODEL_DIR   = Path("models")
 YOLO_PT     = MODEL_DIR / "yolo_best.pt"
 UNET_VERSIONS = {
-    "v1 (original)": {"dir": "unet_folds",    "label": "UNet_v1.0"},
-    "v2 (fine-tuned)": {"dir": "unet_folds_v2", "label": "UNet_v2.0"},
+    "v1": {"dir": "unet_folds",    "label": "UNet_v1.0"},
+    "v2": {"dir": "unet_folds_v2", "label": "UNet_v2.0"},
 }
 N_FOLDS     = 5
 IMG_SIZE    = 384
