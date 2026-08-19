@@ -23,9 +23,3 @@ CREATE TABLE IF NOT EXISTS feedback (
 -- (feedback.py::init_feedback_table() also runs these on every app boot).
 ALTER TABLE feedback ADD COLUMN IF NOT EXISTS comment TEXT;
 ALTER TABLE feedback ADD COLUMN IF NOT EXISTS evidence_paths TEXT;
-
--- NOTE: the live table also has a feedback_by column from a since-reverted
--- sign-in feature (testuser1/2/3 reviewer tracking). It was deliberately left
--- in place rather than dropped, to avoid destroying the historical values it
--- already has — new rows just don't populate it anymore. Not recreated here
--- since a brand-new deployment no longer needs it.

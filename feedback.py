@@ -49,10 +49,6 @@ def init_feedback_table() -> None:
         # Backfill for tables created before comment/evidence-attachment support existed.
         conn.execute(text("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS comment TEXT"))
         conn.execute(text("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS evidence_paths TEXT"))
-        # NOTE: feedback_by column still exists in the live table (added, then the
-        # sign-in feature that populated it was reverted) — deliberately left alone,
-        # not dropped, so no historical data is destroyed. New rows just don't set
-        # it anymore.
 
 
 def resolve_category(feedback_type, reason=None):
