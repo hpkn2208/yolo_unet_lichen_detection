@@ -39,26 +39,6 @@ if "feedback_table_ready" not in st.session_state:
     init_feedback_table()
     st.session_state["feedback_table_ready"] = True
 
-# ── Sign-in ───────────────────────────────────────────────────────────────────
-TEST_USERS = ["testuser1", "testuser2", "testuser3"]
-
-if "current_user" not in st.session_state:
-    st.session_state["current_user"] = None
-
-if not st.session_state["current_user"]:
-    st.subheader("Who are you?")
-    choice = st.selectbox("Select your reviewer name to continue",
-                           ["-- select --"] + TEST_USERS)
-    if choice != "-- select --":
-        st.session_state["current_user"] = choice
-        st.rerun()
-    st.stop()
-
-st.sidebar.success(f"Signed in as **{st.session_state['current_user']}**")
-if st.sidebar.button("Switch user"):
-    st.session_state["current_user"] = None
-    st.rerun()
-
 # ── Paths ─────────────────────────────────────────────────────────────────────
 MODEL_DIR   = Path("models")
 YOLO_PT     = MODEL_DIR / "yolo_best.pt"
@@ -485,7 +465,6 @@ for i in range(0, len(uploaded_files), row_cols):
                 render_feedback_widget(
                     col, img_rgb, overlay_rgb, iid,
                     predictions, uf.name, models_used,
-                    feedback_by=st.session_state["current_user"],
                 )
 
 st.success("Done.")

@@ -43,14 +43,16 @@ def init_feedback_table() -> None:
                 models_used TEXT,
                 comment TEXT,
                 evidence_paths TEXT,
-                feedback_by TEXT,
                 created_at TEXT NOT NULL
             )
         """))
-        # Backfill for tables created before comment/evidence-attachment/feedback_by support existed.
+        # Backfill for tables created before comment/evidence-attachment support existed.
         conn.execute(text("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS comment TEXT"))
         conn.execute(text("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS evidence_paths TEXT"))
-        conn.execute(text("ALTER TABLE feedback ADD COLUMN IF NOT EXISTS feedback_by TEXT"))
+        # NOTE: feedback_by column still exists in the live table (added, then the
+        # sign-in feature that populated it was reverted) — deliberately left alone,
+        # not dropped, so no historical data is destroyed. New rows just don't set
+        # it anymore.
 
 
 def resolve_category(feedback_type, reason=None):
@@ -63,7 +65,7 @@ def resolve_category(feedback_type, reason=None):
 
 def save_feedback(image_array, overlay_array, image_id, feedback_type,
                   reason, correct_class, predictions, uploaded_filename, models_used,
-                  comment=None, evidence_files=None, feedback_by=None):
+                  comment=None, evidence_files=None):
     category = resolve_category(feedback_type, reason)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
@@ -85,10 +87,10 @@ def save_feedback(image_array, overlay_array, image_id, feedback_type,
             text("""INSERT INTO feedback
                     (id, image_id, original_filename, category, feedback_type, reason,
                      correct_class, original_path, overlay_path, predictions, models_used,
-                     comment, evidence_paths, feedback_by, created_at)
+                     comment, evidence_paths, created_at)
                     VALUES (:id, :image_id, :original_filename, :category, :feedback_type, :reason,
                             :correct_class, :original_path, :overlay_path, :predictions, :models_used,
-                            :comment, :evidence_paths, :feedback_by, :created_at)"""),
+                            :comment, :evidence_paths, :created_at)"""),
             {
                 "id": str(uuid.uuid4()), "image_id": image_id, "original_filename": uploaded_filename,
                 "category": category, "feedback_type": feedback_type, "reason": reason,
@@ -96,7 +98,6 @@ def save_feedback(image_array, overlay_array, image_id, feedback_type,
                 "predictions": json.dumps(predictions), "models_used": json.dumps(models_used or {}),
                 "comment": comment or None,
                 "evidence_paths": json.dumps(evidence_keys) if evidence_keys else None,
-                "feedback_by": feedback_by or None,
                 "created_at": datetime.now(timezone.utc).isoformat(),
             },
         )
@@ -105,8 +106,7 @@ def save_feedback(image_array, overlay_array, image_id, feedback_type,
 
 
 def render_feedback_widget(col, image_array, overlay_array, image_id,
-                           predictions, uploaded_filename, models_used=None,
-                           feedback_by=None):
+                           predictions, uploaded_filename, models_used=None):
     with col:
         st.divider()
         st.markdown("📋 **Feedback**")
@@ -123,7 +123,7 @@ def render_feedback_widget(col, image_array, overlay_array, image_id,
                 st.session_state[k] = v
 
         if st.session_state[done_key]:
-            st.success(f"✓ Feedback recorded by {feedback_by}." if feedback_by else "✓ Feedback recorded.")
+            st.success("✓ Feedback recorded.")
             return
 
         feedback = st.radio("Is the prediction correct?", ["Correct", "Incorrect"],
@@ -165,8 +165,7 @@ def render_feedback_widget(col, image_array, overlay_array, image_id,
                     save_feedback(image_array, overlay_array, image_id,
                                   feedback, reason, correct_class,
                                   predictions, uploaded_filename, models_used or {},
-                                  comment=comment, evidence_files=evidence_files,
-                                  feedback_by=feedback_by)
+                                  comment=comment, evidence_files=evidence_files)
                     st.session_state[done_key] = True
                     st.rerun()
                 except Exception as e:
