@@ -84,8 +84,12 @@ yolo_padding  = st.sidebar.slider("YOLO crop padding (px)", 0, 100, 40, 10,
                                    help="Extra pixels around detected bbox before sending to UNet")
 lichen_thresh = st.sidebar.slider("Lichen probability threshold", 0.30, 0.90, 0.65, 0.05,
                                    help="Min lichen softmax prob to colour a pixel red")
-min_blob_px   = st.sidebar.slider("Min lesion blob (pixels)", 0, 500, 200, 50,
+min_blob_px   = st.sidebar.slider("Min lichen blob (pixels)", 0, 500, 200, 50,
                                    help="Remove isolated lichen predictions smaller than this")
+min_other_blob_px = st.sidebar.slider("Min other-lesion blob (pixels)", 0, 300, 80, 10,
+                                   help="Remove isolated 'other' predictions smaller than this — "
+                                        "kept lower than the lichen threshold since real other-lesion "
+                                        "findings (aphthae, ulcers, etc.) tend to be smaller than lichen patches")
 use_tta       = st.sidebar.checkbox("Test-time augmentation (TTA)", value=True,
                                      help="Average hflip+vflip predictions — ~1% F1 boost")
 use_yolo_gate = st.sidebar.checkbox("Enable YOLO gate", value=True,
@@ -129,15 +133,20 @@ def load_unet_ensemble(unet_dir, n_folds, device_str):
 
 # ── Inference helpers ─────────────────────────────────────────────────────────
 
-def remove_small_blobs(pred_mask, min_pixels):
-    if min_pixels <= 0:
-        return pred_mask
-    out    = pred_mask.copy()
-    lichen = (pred_mask == 1).astype(np.uint8)
-    n, labels, stats, _ = cv2.connectedComponentsWithStats(lichen, connectivity=8)
-    for i in range(1, n):
-        if stats[i, cv2.CC_STAT_AREA] < min_pixels:
-            out[labels == i] = 0
+def remove_small_blobs(pred_mask, min_pixels_lichen, min_pixels_other):
+    """Removes isolated connected-component blobs smaller than the given
+    per-class pixel-area threshold — lichen (class 1) and other (class 2)
+    get separate thresholds since real 'other' findings (aphthae, ulcers)
+    tend to be smaller than lichen patches."""
+    out = pred_mask.copy()
+    for cls, min_pixels in ((1, min_pixels_lichen), (2, min_pixels_other)):
+        if min_pixels <= 0:
+            continue
+        cls_mask = (pred_mask == cls).astype(np.uint8)
+        n, labels, stats, _ = cv2.connectedComponentsWithStats(cls_mask, connectivity=8)
+        for i in range(1, n):
+            if stats[i, cv2.CC_STAT_AREA] < min_pixels:
+                out[labels == i] = 0
     return out
 
 
@@ -215,7 +224,7 @@ def image_id(filename):
 
 def run_inference(yolo_model, unet_models, img_rgb, img_bgr,
                    use_yolo_gate, yolo_conf, yolo_padding,
-                   lichen_thresh, use_tta, min_blob_px, device):
+                   lichen_thresh, use_tta, min_blob_px, min_other_blob_px, device):
     """Run the YOLO gate + UNet ensemble pipeline on one image.
 
     If the GPU runs out of memory, retries the same image on CPU
@@ -229,7 +238,7 @@ def run_inference(yolo_model, unet_models, img_rgb, img_bgr,
         return _run_inference_impl(
             yolo_model, unet_models, img_rgb, img_bgr,
             use_yolo_gate, yolo_conf, yolo_padding,
-            lichen_thresh, use_tta, min_blob_px, device,
+            lichen_thresh, use_tta, min_blob_px, min_other_blob_px, device,
         )
     except torch.cuda.OutOfMemoryError:
         torch.cuda.empty_cache()
@@ -238,14 +247,14 @@ def run_inference(yolo_model, unet_models, img_rgb, img_bgr,
         return _run_inference_impl(
             yolo_model, cpu_unet_models, img_rgb, img_bgr,
             use_yolo_gate, yolo_conf, yolo_padding,
-            lichen_thresh, use_tta, min_blob_px, torch.device("cpu"),
+            lichen_thresh, use_tta, min_blob_px, min_other_blob_px, torch.device("cpu"),
             yolo_device="cpu",
         )
 
 
 def _run_inference_impl(yolo_model, unet_models, img_rgb, img_bgr,
                          use_yolo_gate, yolo_conf, yolo_padding,
-                         lichen_thresh, use_tta, min_blob_px, device,
+                         lichen_thresh, use_tta, min_blob_px, min_other_blob_px, device,
                          yolo_device=None):
     H, W = img_rgb.shape[:2]
 
@@ -263,7 +272,7 @@ def _run_inference_impl(yolo_model, unet_models, img_rgb, img_bgr,
             crop_256 = cv2.resize(crop_rgb, (IMG_SIZE, IMG_SIZE))
             pred_256, probs_256 = predict_unet(
                 unet_models, crop_256, lichen_thresh, use_tta, device)
-            pred_256 = remove_small_blobs(pred_256, min_blob_px)
+            pred_256 = remove_small_blobs(pred_256, min_blob_px, min_other_blob_px)
 
             pred_crop = cv2.resize(
                 pred_256, (x2 - x1, y2 - y1), interpolation=cv2.INTER_NEAREST)
@@ -280,7 +289,7 @@ def _run_inference_impl(yolo_model, unet_models, img_rgb, img_bgr,
         img_256 = cv2.resize(img_rgb, (IMG_SIZE, IMG_SIZE))
         pred_256, probs_256 = predict_unet(
             unet_models, img_256, fallback_thresh, use_tta, device)
-        pred_256 = remove_small_blobs(pred_256, min_blob_px)
+        pred_256 = remove_small_blobs(pred_256, min_blob_px, min_other_blob_px)
         full_pred = cv2.resize(
             pred_256, (W, H), interpolation=cv2.INTER_NEAREST)
 
@@ -379,7 +388,7 @@ for i in range(0, len(uploaded_files), row_cols):
             result = run_inference(
                 yolo_model, unet_models, img_rgb, img_bgr,
                 use_yolo_gate, yolo_conf, yolo_padding,
-                lichen_thresh, use_tta, min_blob_px, DEVICE,
+                lichen_thresh, use_tta, min_blob_px, min_other_blob_px, DEVICE,
             )
             yolo_boxes    = result["yolo_boxes"]
             yolo_detected = result["yolo_detected"]
