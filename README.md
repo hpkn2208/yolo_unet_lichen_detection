@@ -90,8 +90,6 @@ streamlit_app/
 │       └── UNet_fold4_best.pth
 └── feedback_data/          # Auto-created, stores clinician feedback
     ├── Success_Data/
-    ├── YOLO_FN/            # Cases where YOLO missed a lesion
-    ├── YOLO_FP/            # Cases where YOLO falsely detected a lesion
     ├── UNet_Bad_Mask/      # Cases where segmentation mask was wrong
     └── UNet_Wrong_Class/   # Cases where lichen/other was misclassified
 ```
