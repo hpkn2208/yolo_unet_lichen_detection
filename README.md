@@ -167,9 +167,7 @@ Clinicians can mark each prediction as **Correct** or **Incorrect**. If incorrec
 
 | Reason | Saved to |
 |---|---|
-| YOLO missed lesion | `feedback_data/YOLO_FN/` |
-| YOLO false alarm | `feedback_data/YOLO_FP/` |
-| Wrong lichen mask | `feedback_data/UNet_Bad_Mask/` |
+| Wrong mask | `feedback_data/UNet_Bad_Mask/` |
 | Wrong class | `feedback_data/UNet_Wrong_Class/` |
 
 Each feedback entry saves the original image, overlay image, and a JSON metadata file. Use the **Download Feedback ZIP** button to export all collected data for retraining.

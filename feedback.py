@@ -14,9 +14,7 @@ from sqlalchemy import create_engine, text
 import storage
 
 CATEGORY_MAP = {
-    "YOLO missed lesion": "YOLO_FN",
-    "YOLO false alarm": "YOLO_FP",
-    "Wrong lichen mask": "UNet_Bad_Mask",
+    "Wrong mask": "UNet_Bad_Mask",
     "Wrong class": "UNet_Wrong_Class",
 }
 
@@ -132,8 +130,7 @@ def render_feedback_widget(col, image_array, overlay_array, image_id,
         if feedback == "Incorrect":
             reason = st.radio(
                 "What was wrong?",
-                ["YOLO missed lesion", "YOLO false alarm",
-                 "Wrong lichen mask", "Wrong class"],
+                ["Wrong mask", "Wrong class"],
                 key=re_key,
             )
             if reason == "Wrong class":
