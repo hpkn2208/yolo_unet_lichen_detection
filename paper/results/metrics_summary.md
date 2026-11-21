@@ -6,23 +6,23 @@ Confusion matrix (rows = ground truth, columns = prediction):
 
 | GT \ Pred | normal | olp | other |
 |---|---|---|---|
-| normal | 13 | 14 | 3 |
-| olp | 1 | 24 | 4 |
-| other | 1 | 7 | 22 |
+| normal | 20 | 9 | 1 |
+| olp | 2 | 20 | 7 |
+| other | 0 | 6 | 24 |
 
-3-class accuracy: **66.3%**, macro-F1: **0.657**
+3-class accuracy: **71.9%**, macro-F1: **0.723**
 
 | Class (one-vs-rest) | Accuracy | Sensitivity | Specificity | Precision | F1 |
 |---|---|---|---|---|---|
-| normal | 78.7% | 43.3% | 96.6% | 86.7% | 0.578 |
-| olp | 70.8% | 82.8% | 65.0% | 53.3% | 0.649 |
-| other | 83.1% | 73.3% | 88.1% | 75.9% | 0.746 |
+| normal | 86.5% | 66.7% | 96.6% | 90.9% | 0.769 |
+| olp | 73.0% | 69.0% | 75.0% | 57.1% | 0.625 |
+| other | 84.3% | 80.0% | 86.4% | 75.0% | 0.774 |
 
 ## Pixel-level segmentation
 
 | Class | n lesion images | Dice (mean ± SD) | IoU (mean ± SD) | Specificity on lesion-free images | Pooled Sens | Pooled Spec | Pooled Prec | Pooled F1 | Pooled Acc |
 |---|---|---|---|---|---|---|---|---|---|
-| olp | 29 | 0.564 ± 0.324 | 0.457 ± 0.299 | 96.1% | 57.4% | 96.4% | 62.7% | 0.599 | 92.8% |
-| other | 30 | 0.492 ± 0.347 | 0.395 ± 0.314 | 99.2% | 64.9% | 98.0% | 61.8% | 0.633 | 96.4% |
+| olp | 29 | 0.541 ± 0.361 | 0.448 ± 0.327 | 98.8% | 59.4% | 98.4% | 79.7% | 0.681 | 94.7% |
+| other | 30 | 0.538 ± 0.323 | 0.431 ± 0.298 | 99.1% | 69.8% | 97.8% | 61.2% | 0.652 | 96.4% |
 
 Dice/IoU are averaged per image over the images whose ground truth contains the class. Pooled columns use all pixels of all images.

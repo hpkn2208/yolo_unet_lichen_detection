@@ -4,19 +4,19 @@
   "image_level": {
     "confusion_matrix_rows_gt_cols_pred": [
       [
-        13,
-        14,
-        3
+        20,
+        9,
+        1
       ],
       [
-        1,
-        24,
-        4
+        2,
+        20,
+        7
       ],
       [
-        1,
-        7,
-        22
+        0,
+        6,
+        24
       ]
     ],
     "labels": [
@@ -24,102 +24,102 @@
       "olp",
       "other"
     ],
-    "accuracy_3class": 0.6629213483146067,
-    "macro_f1": 0.6573963794302778,
+    "accuracy_3class": 0.7191011235955056,
+    "macro_f1": 0.722808105872622,
     "one_vs_rest": {
       "normal": {
-        "tp": 13,
+        "tp": 20,
         "fp": 2,
-        "fn": 17,
+        "fn": 10,
         "tn": 57,
-        "accuracy": 0.7865168539325843,
-        "sensitivity": 0.43333333333333335,
+        "accuracy": 0.8651685393258427,
+        "sensitivity": 0.6666666666666666,
         "specificity": 0.9661016949152542,
-        "precision": 0.8666666666666667,
-        "f1": 0.5777777777777778
+        "precision": 0.9090909090909091,
+        "f1": 0.7692307692307692
       },
       "olp": {
-        "tp": 24,
-        "fp": 21,
-        "fn": 5,
-        "tn": 39,
-        "accuracy": 0.7078651685393258,
-        "sensitivity": 0.8275862068965517,
-        "specificity": 0.65,
-        "precision": 0.5333333333333333,
-        "f1": 0.6486486486486487
+        "tp": 20,
+        "fp": 15,
+        "fn": 9,
+        "tn": 45,
+        "accuracy": 0.7303370786516854,
+        "sensitivity": 0.6896551724137931,
+        "specificity": 0.75,
+        "precision": 0.5714285714285714,
+        "f1": 0.625
       },
       "other": {
-        "tp": 22,
-        "fp": 7,
-        "fn": 8,
-        "tn": 52,
-        "accuracy": 0.8314606741573034,
-        "sensitivity": 0.7333333333333333,
-        "specificity": 0.8813559322033898,
-        "precision": 0.7586206896551724,
-        "f1": 0.7457627118644068
+        "tp": 24,
+        "fp": 8,
+        "fn": 6,
+        "tn": 51,
+        "accuracy": 0.8426966292134831,
+        "sensitivity": 0.8,
+        "specificity": 0.864406779661017,
+        "precision": 0.75,
+        "f1": 0.7741935483870969
       }
     }
   },
   "pixel_level": {
     "olp": {
       "n_images_with_lesion": 29,
-      "dice_mean": 0.5642792302369254,
-      "dice_sd": 0.32378975687227113,
-      "iou_mean": 0.45710264559112657,
-      "iou_sd": 0.2989348744186953,
-      "specificity_on_lesion_free_images": 0.9609698912759955,
+      "dice_mean": 0.541319827332666,
+      "dice_sd": 0.3613407269993993,
+      "iou_mean": 0.4482276215559408,
+      "iou_sd": 0.32652178129131454,
+      "specificity_on_lesion_free_images": 0.9879753989328478,
       "pooled_one_vs_rest": {
-        "tp": 803592,
-        "fp": 477547,
-        "fn": 596245,
-        "tn": 12949121,
-        "accuracy": 0.9275761887241801,
-        "sensitivity": 0.5740611228307296,
-        "specificity": 0.9644329479212564,
-        "precision": 0.6272480972010063,
-        "f1": 0.5994772053162729
+        "tp": 831634,
+        "fp": 211500,
+        "fn": 568203,
+        "tn": 13215168,
+        "accuracy": 0.9474115443929638,
+        "sensitivity": 0.5940934551665659,
+        "specificity": 0.9842477672047898,
+        "precision": 0.7972456079468218,
+        "f1": 0.6808382088858197
       },
-      "pooled_dice": 0.5994772053162729,
-      "pooled_iou": 0.4280381637427399
+      "pooled_dice": 0.6808382088858198,
+      "pooled_iou": 0.5161142579112873
     },
     "other": {
       "n_images_with_lesion": 30,
-      "dice_mean": 0.49173892158890753,
-      "dice_sd": 0.34673398639462866,
-      "iou_mean": 0.39495377587087394,
-      "iou_sd": 0.31373295058736483,
-      "specificity_on_lesion_free_images": 0.9921355414935166,
+      "dice_mean": 0.5379565502618557,
+      "dice_sd": 0.32271575302050104,
+      "iou_mean": 0.4306238973613009,
+      "iou_sd": 0.2975744074586733,
+      "specificity_on_lesion_free_images": 0.9910190396608595,
       "pooled_one_vs_rest": {
-        "tp": 463615,
-        "fp": 287005,
-        "fn": 250612,
-        "tn": 13825273,
-        "accuracy": 0.9637394652347266,
-        "sensitivity": 0.6491143572001619,
-        "specificity": 0.9796627447390138,
-        "precision": 0.6176427486611068,
-        "f1": 0.6329876089448249
+        "tp": 498331,
+        "fp": 316515,
+        "fn": 215896,
+        "tn": 13795763,
+        "accuracy": 0.9640905931640666,
+        "sensitivity": 0.6977207526458675,
+        "specificity": 0.977571657814564,
+        "precision": 0.6115646392078994,
+        "f1": 0.6518079908545897
       },
-      "pooled_dice": 0.632987608944825,
-      "pooled_iou": 0.4630445291400994
+      "pooled_dice": 0.6518079908545896,
+      "pooled_iou": 0.4834682199813338
     },
     "confusion_matrix_rows_gt_cols_pred": [
       [
-        12070986,
-        403631,
-        237824
+        12290355,
+        163963,
+        258123
       ],
       [
-        547064,
-        803592,
-        49181
+        509811,
+        831634,
+        58392
       ],
       [
-        176696,
-        73916,
-        463615
+        168359,
+        47537,
+        498331
       ]
     ]
   },
@@ -143,7 +143,7 @@
       "unet": {
         "architecture": "Unet",
         "encoder": "efficientnet-b0",
-        "weights_dir": "models/unet_folds",
+        "weights_dir": "models/unet_folds_v2",
         "weights_pattern": "UNet_fold{k}_best.pth",
         "n_folds": 5,
         "img_size": 384,
@@ -162,11 +162,11 @@
     },
     "weights_sha256": {
       "yolo_best.pt": "3bcc8a01e274e366957f3b147da6f3cf5535b1be3abba40d796693cd243818b1",
-      "UNet_fold0_best.pth": "94b3c163f65a694c24087c061c0f4624095c307aff4ffeedfdda12b211c90ab2",
-      "UNet_fold1_best.pth": "5c0a168e633b9a266306af638960293f8b15d2ff700153ff8a69621b0fe7361b",
-      "UNet_fold2_best.pth": "48dfe47925f0e7c6bbd95d1e1a31359383f7bb3b57a66903214be199f520d0a9",
-      "UNet_fold3_best.pth": "f82e35dca6867cbc1cb6b4e26ed0b9b232e140d77d438a65c137159871ed1352",
-      "UNet_fold4_best.pth": "316d42c74dd7f5886a02f5255a1d0553f991c42e86e54a946f7b1e5752858063"
+      "UNet_fold0_best.pth": "3c810f649889faae87d5ab0dce048d6c3f6efcbfa2c9bf95c023968086850f08",
+      "UNet_fold1_best.pth": "6d3ce4fe396007f1de43d85985c07cef1d2628929419e256022f75044e7bb22c",
+      "UNet_fold2_best.pth": "6dd9ec56bea92f5e3b4636a7f5a048575885ccf71ae70eec3a07f8b237c4b63a",
+      "UNet_fold3_best.pth": "015b7e003c2e91bf2b760562dd99b133914bcfa63e4d2e9a515920e526c55ffc",
+      "UNet_fold4_best.pth": "39a3a92fc28c7e3829a668c93d3f06ac44e6159949ede17951ec500823d72f40"
     },
     "python": "3.13.14",
     "torch": "2.6.0+cu124",

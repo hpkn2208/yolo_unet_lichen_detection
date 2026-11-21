@@ -1,5 +1,6 @@
 """Train the 5-fold U-Net (EfficientNet-B0) ensemble — script version of the Kaggle notebook
-`5fold-unet.ipynb` that produced models/unet_folds/UNet_fold{0-4}_best.pth.
+`5fold-unet.ipynb` that produced models/unet_folds_v2/UNet_fold{0-4}_best.pth (the 5 checkpoints
+reproduce the notebook's per-fold validation F1: 0.579 / 0.641 / 0.659 / 0.656 / 0.620).
 
     python paper/train_unet_5fold.py --data-root /path/to/dataset --out-dir runs/unet
 

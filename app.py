@@ -71,8 +71,8 @@ tta_tfs = [
 st.sidebar.header("Settings")
 
 unet_version_choice = st.sidebar.selectbox(
-    "UNet model version", list(UNET_VERSIONS.keys()), index=0,
-    help="v1 = original 5-fold ensemble. v2 = fine-tuned on old+new combined data.",
+    "UNet model version", list(UNET_VERSIONS.keys()), index=1,
+    help="v2 = final 5-fold ensemble (paper version, 969 training images). v1 = earlier 5-fold ensemble.",
 )
 UNET_DIR      = MODEL_DIR / UNET_VERSIONS[unet_version_choice]["dir"]
 MODEL_VERSION = UNET_VERSIONS[unet_version_choice]["label"]

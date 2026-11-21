@@ -5,7 +5,7 @@ notebook that produced models/yolo_best.pt (run name `lesion_seg_v2`).
 
 DATASET layout (made by prepare_yolo_data.py): images/{train,val}, labels/{train,val}, data.yaml.
 Step 1 keeps all lesion images of the training split and only 20% (by count) of the background
-(normal / empty-label) images -> 588 train images + 185 val images (773) in the paper version.
+(normal / empty-label) images; the validation split (185 images) is left untouched.
 Step 2 trains: yolov8s-seg.pt start, 120 epochs, batch 16, imgsz 640, patience 25, AdamW lr0 5e-4.
 Seed: the Ultralytics default (0), as in args.yaml of the original run.
 """

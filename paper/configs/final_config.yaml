@@ -26,7 +26,7 @@ yolo:
 unet:
   architecture: Unet
   encoder: efficientnet-b0
-  weights_dir: models/unet_folds
+  weights_dir: models/unet_folds_v2   # = output of 5fold-unet.ipynb (fold F1 0.579/0.641/0.659/0.656/0.620, verified)
   weights_pattern: "UNet_fold{k}_best.pth"
   n_folds: 5
   img_size: 384             # train AND inference resolution (square resize)
