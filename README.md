@@ -109,6 +109,7 @@ streamlit_app/
 ├── LICENSE                 # AGPL-3.0
 ├── README.md               # This file
 ├── ml/                  # Config, training / evaluation code, results (see ml/README.md)
+├── training/            # Kaggle training notebooks (YOLOv8-seg, 5-fold U-Net)
 ├── models/
 │   ├── yolo_best.pt        # YOLOv8s-seg checkpoint
 │   ├── unet_folds_v2/
@@ -198,7 +199,7 @@ Each feedback entry saves the original image, overlay image, and a JSON metadata
 
 ## Training
 
-Training, data-split and evaluation code is in [`ml/`](ml/README.md):
+Training, data-split and evaluation code is in [`ml/`](ml/README.md); the original Kaggle training notebooks are in [`training/`](training/README.md):
 
 | Script | Purpose |
 |---|---|

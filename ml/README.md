@@ -68,7 +68,7 @@ print(out["label"], out["olp_pct"], out["other_pct"])      # out["mask"]: 0 norm
 | U-Net 5-fold split | `python ml/split_unet_folds.py --data-root UNET_DATA --out ml/data/folds.csv` | `folds.csv` (shipped) |
 | U-Net 5-fold training | `python ml/train_unet_5fold.py --data-root UNET_DATA --out-dir runs/unet` | `runs/unet/UNet_fold{0-4}_best.pth`, `cv_results.csv` |
 
-The models were trained on Kaggle GPUs; retraining is not bit-for-bit reproducible across hardware/library versions.
+The models were trained on Kaggle GPUs with the notebooks in [`../training/`](../training/README.md); retraining is not bit-for-bit reproducible across hardware/library versions.
 `prepare_yolo_data.py` also merges existing YOLO-format annotation archives (Pemphigoid, Pemphigus, lichen_retake, LE) that
 are not distributed here. The 20 % background filter of `train_yolo.py` was checked to reproduce exactly the
 training-image list of the original run.
