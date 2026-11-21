@@ -1,11 +1,11 @@
-# Final configuration of the model version evaluated in the paper
+# Final configuration of the released model
 # (89-image independent test set: 30 normal, 29 OLP, 30 other lesions).
 #
 # These values are the defaults of the deployed pipeline in ../app.py and are the
-# ONLY source of parameters for paper/olp_pipeline.py and paper/evaluate.py.
+# ONLY source of parameters for ml/olp_pipeline.py and ml/evaluate.py.
 # Paths are relative to the repository root.
 
-version: paper-v1.0
+version: v1.0
 
 classes:
   0: normal

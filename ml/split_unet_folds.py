@@ -4,7 +4,7 @@ Reproduces exactly the split of the Kaggle training notebook:
     StratifiedKFold(n_splits=5, shuffle=True, random_state=42), stratified by image class,
     samples ordered normal -> lichen -> other, each sorted by file name (Linux/Kaggle ordering).
 
-    python paper/split_unet_folds.py --data-root /path/to/dataset --out paper/data/folds.csv
+    python ml/split_unet_folds.py --data-root /path/to/dataset --out ml/data/folds.csv
 
 DATA_ROOT layout:  {normal,lichen,other}/{images,masks}/
 Output CSV columns: image (relative path), class (0 normal, 1 lichen, 2 other), val_fold (0-4:
@@ -37,7 +37,7 @@ def collect_samples(root: Path):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--data-root", required=True, type=Path)
-    ap.add_argument("--out", type=Path, default=Path("paper/data/folds.csv"))
+    ap.add_argument("--out", type=Path, default=Path("ml/data/folds.csv"))
     args = ap.parse_args()
 
     samples = collect_samples(args.data_root)

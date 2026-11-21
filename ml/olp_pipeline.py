@@ -1,4 +1,4 @@
-"""Standalone inference pipeline used in the paper: YOLOv8s-seg gate -> 5-fold U-Net ensemble.
+"""Standalone inference pipeline: YOLOv8s-seg gate -> 5-fold U-Net ensemble.
 
 This is the same logic as the deployed Streamlit app (../app.py) without any web
 dependency. All parameters come from a YAML config (default: configs/final_config.yaml).

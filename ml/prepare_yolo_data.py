@@ -20,7 +20,7 @@ goes to validation (stratified 80/20). The 20%-background filter of the TRAIN sp
 afterwards by train_yolo.py.
 
 Usage (data are not part of this repository):
-    python paper/prepare_yolo_data.py --data-root /path/to/unet_data --out yolo_seg_dataset \
+    python ml/prepare_yolo_data.py --data-root /path/to/unet_data --out yolo_seg_dataset \
         [--yolo-zips-dir /path/with/Pemphigoid_yolo.zip ...]
 --data-root must contain lichen_images/, lichen_masks/, other_images/, other_masks/, normal_images/.
 """
@@ -265,7 +265,7 @@ def write_dataset(all_samples):
         yaml.dump(data_yaml, f, default_flow_style=False, sort_keys=False)
 
     print(f"\nDone -> {OUT_DIR}")
-    print(f"Next: python paper/train_yolo.py --dataset {OUT_DIR}")
+    print(f"Next: python ml/train_yolo.py --dataset {OUT_DIR}")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────

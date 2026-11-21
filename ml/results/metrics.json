@@ -125,7 +125,7 @@
   },
   "environment": {
     "config": {
-      "version": "paper-v1.0",
+      "version": "v1.0",
       "classes": {
         "0": "normal",
         "1": "olp",

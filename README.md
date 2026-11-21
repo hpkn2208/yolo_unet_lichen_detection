@@ -46,9 +46,9 @@ Colour overlay on original image
 
 ## Model Details
 
-> The exact configuration, weights, scripts and results of the version evaluated in the paper are in
-> [`paper/`](paper/README.md) (git tag `v1.0-paper`). Parameters are defined once in
-> [`paper/configs/final_config.yaml`](paper/configs/final_config.yaml).
+> The configuration, weights, training/evaluation scripts and results of the released model are in
+> [`ml/`](ml/README.md) (git tag `v1.0`). Parameters are defined once in
+> [`ml/configs/final_config.yaml`](ml/configs/final_config.yaml).
 
 ### Stage 1 — YOLOv8s-seg (Gate Detector)
 | Property | Value |
@@ -63,8 +63,8 @@ Colour overlay on original image
 | Validation (box) | P 0.735 · R 0.625 · mAP50 0.682 · mAP50-95 0.304 |
 | Validation (mask) | P 0.712 · R 0.617 · mAP50 0.640 · mAP50-95 0.269 |
 
-Validation metrics of `models/yolo_best.pt` on the 185 validation images (`paper/eval_yolo_val.py`;
-[`paper/results/yolo_val_metrics.json`](paper/results/yolo_val_metrics.json)). The validation split also selects the
+Validation metrics of `models/yolo_best.pt` on the 185 validation images (`ml/eval_yolo_val.py`;
+[`ml/results/yolo_val_metrics.json`](ml/results/yolo_val_metrics.json)). The validation split also selects the
 checkpoint, so these are not independent test metrics.
 
 ### Stage 2 — UNet 5-Fold Ensemble (Segmentation)
@@ -81,8 +81,8 @@ checkpoint, so these are not independent test metrics.
 | Image-level label | OLP and other area both < **0.5 %** → normal, else the larger area wins |
 
 ### Independent test set (89 images: 30 normal, 29 OLP, 30 other)
-Final pipeline, parameters above (`python paper/evaluate.py`, full tables in
-[`paper/results/metrics_summary.md`](paper/results/metrics_summary.md)):
+Final pipeline, parameters above (`python ml/evaluate.py`, full tables in
+[`ml/results/metrics_summary.md`](ml/results/metrics_summary.md)):
 
 | Image level (one-vs-rest) | Accuracy | Sensitivity | Specificity | Precision | F1 |
 |---|---|---|---|---|---|
@@ -108,12 +108,12 @@ streamlit_app/
 ├── requirements.txt        # Python dependencies of the web app
 ├── LICENSE                 # AGPL-3.0
 ├── README.md               # This file
-├── paper/                  # Paper version: config, training/eval code, results (see paper/README.md)
+├── ml/                  # Config, training / evaluation code, results (see ml/README.md)
 ├── models/
-│   ├── yolo_best.pt        # YOLOv8s-seg checkpoint (paper version)
+│   ├── yolo_best.pt        # YOLOv8s-seg checkpoint
 │   ├── unet_folds_v2/
-│   │   └── UNet_fold0_best.pth ... UNet_fold4_best.pth   # paper version (5-fold UNet, default in the app)
-│   └── unet_folds/         # earlier 5-fold run (v1, selectable in the app) + UNet++ comparison; not the paper version
+│   │   └── UNet_fold0_best.pth ... UNet_fold4_best.pth   # 5-fold UNet (default in the app)
+│   └── unet_folds/         # earlier 5-fold run (v1, selectable in the app) + UNet++ comparison
 └── feedback_data/          # git-ignored; local-only fallback, clinical data must never be committed
 ```
 
@@ -198,19 +198,19 @@ Each feedback entry saves the original image, overlay image, and a JSON metadata
 
 ## Training
 
-Training, data-split and evaluation code of the paper version is in [`paper/`](paper/README.md):
+Training, data-split and evaluation code is in [`ml/`](ml/README.md):
 
 | Script | Purpose |
 |---|---|
-| `paper/prepare_yolo_data.py` | Build the YOLO seg dataset from pixel masks / annotations, 80/20 split (seed 42) |
-| `paper/train_yolo.py` | 20 % background filter + YOLOv8s-seg training (120 epochs, batch 16, 640 px) |
-| `paper/split_unet_folds.py` | Stratified 5-fold split of the U-Net data (`paper/data/folds.csv`) |
-| `paper/train_unet_5fold.py` | 5-fold U-Net (EfficientNet-B0, 384 px) training |
-| `paper/evaluate.py` | Dice, IoU, accuracy, sensitivity, specificity, precision, F1 and confusion matrices on the test set |
-| `paper/eval_yolo_val.py` | YOLO box/mask precision, recall, mAP on the validation split |
-| `paper/olp_pipeline.py` | Standalone inference pipeline (no web dependencies) |
+| `ml/prepare_yolo_data.py` | Build the YOLO seg dataset from pixel masks / annotations, 80/20 split (seed 42) |
+| `ml/train_yolo.py` | 20 % background filter + YOLOv8s-seg training (120 epochs, batch 16, 640 px) |
+| `ml/split_unet_folds.py` | Stratified 5-fold split of the U-Net data (`ml/data/folds.csv`) |
+| `ml/train_unet_5fold.py` | 5-fold U-Net (EfficientNet-B0, 384 px) training |
+| `ml/evaluate.py` | Dice, IoU, accuracy, sensitivity, specificity, precision, F1 and confusion matrices on the test set |
+| `ml/eval_yolo_val.py` | YOLO box/mask precision, recall, mAP on the validation split |
+| `ml/olp_pipeline.py` | Standalone inference pipeline (no web dependencies) |
 
-Exact library versions: `paper/requirements-paper.txt`. Data (clinical images) are not distributed, see `paper/data/README.md`.
+Exact library versions: `ml/requirements-ml.txt`. Data (clinical images) are not distributed, see `ml/data/README.md`.
 
 ---
 

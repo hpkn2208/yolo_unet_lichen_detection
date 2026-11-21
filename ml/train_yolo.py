@@ -1,7 +1,7 @@
 """Train the YOLOv8s-seg lesion detector (single class "lesion") — script version of the Kaggle
 notebook that produced models/yolo_best.pt (run name `lesion_seg_v2`).
 
-    python paper/train_yolo.py --dataset /path/to/yolo_seg_dataset --work-dir runs/yolo
+    python ml/train_yolo.py --dataset /path/to/yolo_seg_dataset --work-dir runs/yolo
 
 DATASET layout (made by prepare_yolo_data.py): images/{train,val}, labels/{train,val}, data.yaml.
 Step 1 keeps all lesion images of the training split and only 20% (by count) of the background

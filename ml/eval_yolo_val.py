@@ -1,6 +1,6 @@
 """Validation metrics (box + mask) of the YOLO detector on the validation split.
 
-    python paper/eval_yolo_val.py --dataset /path/to/dataset_filtered --out paper/results/yolo_val_metrics.json
+    python ml/eval_yolo_val.py --dataset /path/to/dataset_filtered --out ml/results/yolo_val_metrics.json
 
 DATASET: images/{train,val}, labels/{train,val} (the filtered dataset written by train_yolo.py).
 Note: the validation split is also used by Ultralytics to select best.pt, so these are validation
@@ -21,7 +21,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dataset", required=True, type=Path)
     ap.add_argument("--weights", type=Path, default=REPO_ROOT / "models" / "yolo_best.pt")
-    ap.add_argument("--out", type=Path, default=REPO_ROOT / "paper" / "results" / "yolo_val_metrics.json")
+    ap.add_argument("--out", type=Path, default=REPO_ROOT / "ml" / "results" / "yolo_val_metrics.json")
     ap.add_argument("--device", default="0")
     args = ap.parse_args()
 

@@ -1,6 +1,6 @@
-# Paper version — reproduction guide
+# Training, evaluation and reproduction guide
 
-Code, configuration and weights of the model version evaluated in the paper (git tag `v1.0-paper`).
+Code, configuration and weights of the released model (git tag `v1.0`).
 Later development of the web apps happens on `main` and does not change this tag.
 
 > Clinical images, masks, patient information and feedback data are **not** in this repository
@@ -27,21 +27,21 @@ Weights: `models/yolo_best.pt` (= `best.pt` of the Kaggle run `lesion_seg_v2`, i
 `models/unet_folds_v2/UNet_fold{0-4}_best.pth` (output of `5fold-unet.ipynb`: scoring the 5 checkpoints on their
 validation folds reproduces the notebook's per-fold F1 0.579 / 0.641 / 0.659 / 0.656 / 0.620, mean 0.631 ± 0.033);
 SHA-256 in [`weights_sha256.txt`](weights_sha256.txt). The other files in `models/` (`unet_folds/`, an earlier
-5-fold run, and `UNet++_+_scSE_*`, an architecture comparison) are **not** part of the paper version.
+5-fold run, and `UNet++_+_scSE_*`, an architecture comparison) are not the default model.
 
 ## 2. Install
 
 ```bash
 python -m venv .venv && source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu124   # or the CPU build
-pip install -r paper/requirements-paper.txt
-sha256sum -c paper/weights_sha256.txt                    # run from the repository root
+pip install -r ml/requirements-ml.txt
+sha256sum -c ml/weights_sha256.txt                    # run from the repository root
 ```
 
 ## 3. Re-run the evaluation (89 test images)
 
 ```bash
-python paper/evaluate.py --test-dir /path/to/test_set --out paper/results
+python ml/evaluate.py --test-dir /path/to/test_set --out ml/results
 ```
 
 `test_set/{normal,lichen,other}/{images,masks}/` — mask = any non-zero pixel is lesion.
@@ -53,7 +53,7 @@ deterministic (no sampling), so a re-run on the same data and library versions s
 Use the model on a single image from Python:
 
 ```python
-import cv2, sys; sys.path.insert(0, "paper")
+import cv2, sys; sys.path.insert(0, "ml")
 from olp_pipeline import OLPPipeline
 out = OLPPipeline().predict(cv2.cvtColor(cv2.imread("photo.jpg"), cv2.COLOR_BGR2RGB))
 print(out["label"], out["olp_pct"], out["other_pct"])      # out["mask"]: 0 normal, 1 OLP, 2 other
@@ -63,24 +63,21 @@ print(out["label"], out["olp_pct"], out["other_pct"])      # out["mask"]: 0 norm
 
 | Step | Command | Output |
 |---|---|---|
-| YOLO dataset (80/20 split, seed 42) | `python paper/prepare_yolo_data.py --data-root DATA --out yolo_seg_dataset` | `images/`, `labels/`, `data.yaml` |
-| YOLO training (+ 20 % background filter) | `python paper/train_yolo.py --dataset yolo_seg_dataset --work-dir runs/yolo` | `runs/yolo/lesion_seg_v2/weights/best.pt` |
-| U-Net 5-fold split | `python paper/split_unet_folds.py --data-root UNET_DATA --out paper/data/folds.csv` | `folds.csv` (shipped) |
-| U-Net 5-fold training | `python paper/train_unet_5fold.py --data-root UNET_DATA --out-dir runs/unet` | `runs/unet/UNet_fold{0-4}_best.pth`, `cv_results.csv` |
+| YOLO dataset (80/20 split, seed 42) | `python ml/prepare_yolo_data.py --data-root DATA --out yolo_seg_dataset` | `images/`, `labels/`, `data.yaml` |
+| YOLO training (+ 20 % background filter) | `python ml/train_yolo.py --dataset yolo_seg_dataset --work-dir runs/yolo` | `runs/yolo/lesion_seg_v2/weights/best.pt` |
+| U-Net 5-fold split | `python ml/split_unet_folds.py --data-root UNET_DATA --out ml/data/folds.csv` | `folds.csv` (shipped) |
+| U-Net 5-fold training | `python ml/train_unet_5fold.py --data-root UNET_DATA --out-dir runs/unet` | `runs/unet/UNet_fold{0-4}_best.pth`, `cv_results.csv` |
 
 The models were trained on Kaggle GPUs; retraining is not bit-for-bit reproducible across hardware/library versions.
 `prepare_yolo_data.py` also merges existing YOLO-format annotation archives (Pemphigoid, Pemphigus, lichen_retake, LE) that
 are not distributed here. The 20 % background filter of `train_yolo.py` was checked to reproduce exactly the
 training-image list of the original run.
 
-## 5. Known limitations (please read before citing numbers)
+## 5. Known limitations
 
 * Splits are by image, not by patient (patient IDs are not available); fold metrics are measured on the validation
   fold that also selects the checkpoint (slightly optimistic). YOLO validation metrics are likewise validation, not test, metrics.
 * The 89-image test set is small (29–30 images per class); no confidence intervals are provided.
-* Reported test results use the configuration above. Earlier exploratory notebooks (not part of this release)
-  evaluated at a different configuration (inference size 256, YOLO confidence 0.25, 30 % box margin, no TTA/blob filter)
-  and their numbers must not be mixed with the ones in `results/`.
 
 ## 6. License
 

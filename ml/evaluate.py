@@ -9,7 +9,7 @@ Expected test-set layout (images and masks are NOT part of this repository: clin
 
 Run from the repository root:
 
-    python paper/evaluate.py --test-dir /path/to/TEST_DIR --out paper/results
+    python ml/evaluate.py --test-dir /path/to/TEST_DIR --out ml/results
 
 Outputs (in --out): metrics.json, metrics_summary.md, per_image_results.csv,
 confusion_matrix_image_level.{csv,png}, confusion_matrix_pixel_level.csv
@@ -109,7 +109,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--test-dir", required=True, type=Path)
     ap.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
-    ap.add_argument("--out", type=Path, default=REPO_ROOT / "paper" / "results")
+    ap.add_argument("--out", type=Path, default=REPO_ROOT / "ml" / "results")
     ap.add_argument("--limit", type=int, default=0, help="evaluate only the first N images (smoke test)")
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)

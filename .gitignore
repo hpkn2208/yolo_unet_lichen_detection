@@ -4,4 +4,4 @@
 feedback_data.zip
 # Clinician feedback images/metadata must never be committed
 feedback_data/
-paper/__pycache__/
+ml/__pycache__/

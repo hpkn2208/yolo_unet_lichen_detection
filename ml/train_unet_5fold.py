@@ -2,10 +2,10 @@
 `5fold-unet.ipynb` that produced models/unet_folds_v2/UNet_fold{0-4}_best.pth (the 5 checkpoints
 reproduce the notebook's per-fold validation F1: 0.579 / 0.641 / 0.659 / 0.656 / 0.620).
 
-    python paper/train_unet_5fold.py --data-root /path/to/dataset --out-dir runs/unet
+    python ml/train_unet_5fold.py --data-root /path/to/dataset --out-dir runs/unet
 
 DATA_ROOT layout: {normal,lichen,other}/{images,masks}/ ; mask training target = (mask > 0) * class id.
-Final settings (paper): 384x384 input, batch 4, AdamW lr 5e-4 / wd 2e-3, cosine schedule, 60 epochs max,
+Final settings: 384x384 input, batch 4, AdamW lr 5e-4 / wd 2e-3, cosine schedule, 60 epochs max,
 early stopping patience 15 on the pixel-level OLP F1 of the validation fold, encoder frozen for the
 first 5 epochs then unfrozen with lr/5, loss = CE(label smoothing 0.1, inverse-frequency class weights)
 + Tversky(alpha 0.3, beta 0.7), grad clipping 1.0, seed 42, StratifiedKFold(5).

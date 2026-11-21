@@ -1,7 +1,7 @@
-# Exact versions used to run the paper evaluation (paper/evaluate.py) - Python 3.13, Windows, GTX 1050 Ti (CUDA 12.4).
+# Exact versions used to run the evaluation (ml/evaluate.py) - Python 3.13, Windows, GTX 1050 Ti (CUDA 12.4).
 # Install PyTorch first, e.g. (CUDA 12.4):
 #   pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu124
-# then:  pip install -r paper/requirements-paper.txt
+# then:  pip install -r ml/requirements-ml.txt
 #
 # Training was run on Kaggle (Ultralytics 8.4.83 is recorded inside models/yolo_best.pt); the Kaggle image's
 # other library versions were not recorded. The deployed web app keeps its own, unpinned requirements.txt.

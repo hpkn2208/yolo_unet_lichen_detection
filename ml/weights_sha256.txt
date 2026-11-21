@@ -1,5 +1,5 @@
-# SHA-256 of the model weights of the paper version (tag v1.0-paper)
-# Verify with:  sha256sum -c paper/weights_sha256.txt   (run from the repository root)
+# SHA-256 of the model weights of the release (tag v1.0)
+# Verify with:  sha256sum -c ml/weights_sha256.txt   (run from the repository root)
 3bcc8a01e274e366957f3b147da6f3cf5535b1be3abba40d796693cd243818b1 *models/yolo_best.pt
 3c810f649889faae87d5ab0dce048d6c3f6efcbfa2c9bf95c023968086850f08 *models/unet_folds_v2/UNet_fold0_best.pth
 6d3ce4fe396007f1de43d85985c07cef1d2628929419e256022f75044e7bb22c *models/unet_folds_v2/UNet_fold1_best.pth
