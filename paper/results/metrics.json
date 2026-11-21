@@ -1,0 +1,175 @@
+{
+  "n_images": 89,
+  "n_masks_resized_to_image_size": 0,
+  "image_level": {
+    "confusion_matrix_rows_gt_cols_pred": [
+      [
+        13,
+        14,
+        3
+      ],
+      [
+        1,
+        24,
+        4
+      ],
+      [
+        1,
+        7,
+        22
+      ]
+    ],
+    "labels": [
+      "normal",
+      "olp",
+      "other"
+    ],
+    "accuracy_3class": 0.6629213483146067,
+    "macro_f1": 0.6573963794302778,
+    "one_vs_rest": {
+      "normal": {
+        "tp": 13,
+        "fp": 2,
+        "fn": 17,
+        "tn": 57,
+        "accuracy": 0.7865168539325843,
+        "sensitivity": 0.43333333333333335,
+        "specificity": 0.9661016949152542,
+        "precision": 0.8666666666666667,
+        "f1": 0.5777777777777778
+      },
+      "olp": {
+        "tp": 24,
+        "fp": 21,
+        "fn": 5,
+        "tn": 39,
+        "accuracy": 0.7078651685393258,
+        "sensitivity": 0.8275862068965517,
+        "specificity": 0.65,
+        "precision": 0.5333333333333333,
+        "f1": 0.6486486486486487
+      },
+      "other": {
+        "tp": 22,
+        "fp": 7,
+        "fn": 8,
+        "tn": 52,
+        "accuracy": 0.8314606741573034,
+        "sensitivity": 0.7333333333333333,
+        "specificity": 0.8813559322033898,
+        "precision": 0.7586206896551724,
+        "f1": 0.7457627118644068
+      }
+    }
+  },
+  "pixel_level": {
+    "olp": {
+      "n_images_with_lesion": 29,
+      "dice_mean": 0.5642792302369254,
+      "dice_sd": 0.32378975687227113,
+      "iou_mean": 0.45710264559112657,
+      "iou_sd": 0.2989348744186953,
+      "specificity_on_lesion_free_images": 0.9609698912759955,
+      "pooled_one_vs_rest": {
+        "tp": 803592,
+        "fp": 477547,
+        "fn": 596245,
+        "tn": 12949121,
+        "accuracy": 0.9275761887241801,
+        "sensitivity": 0.5740611228307296,
+        "specificity": 0.9644329479212564,
+        "precision": 0.6272480972010063,
+        "f1": 0.5994772053162729
+      },
+      "pooled_dice": 0.5994772053162729,
+      "pooled_iou": 0.4280381637427399
+    },
+    "other": {
+      "n_images_with_lesion": 30,
+      "dice_mean": 0.49173892158890753,
+      "dice_sd": 0.34673398639462866,
+      "iou_mean": 0.39495377587087394,
+      "iou_sd": 0.31373295058736483,
+      "specificity_on_lesion_free_images": 0.9921355414935166,
+      "pooled_one_vs_rest": {
+        "tp": 463615,
+        "fp": 287005,
+        "fn": 250612,
+        "tn": 13825273,
+        "accuracy": 0.9637394652347266,
+        "sensitivity": 0.6491143572001619,
+        "specificity": 0.9796627447390138,
+        "precision": 0.6176427486611068,
+        "f1": 0.6329876089448249
+      },
+      "pooled_dice": 0.632987608944825,
+      "pooled_iou": 0.4630445291400994
+    },
+    "confusion_matrix_rows_gt_cols_pred": [
+      [
+        12070986,
+        403631,
+        237824
+      ],
+      [
+        547064,
+        803592,
+        49181
+      ],
+      [
+        176696,
+        73916,
+        463615
+      ]
+    ]
+  },
+  "environment": {
+    "config": {
+      "version": "paper-v1.0",
+      "classes": {
+        "0": "normal",
+        "1": "olp",
+        "2": "other"
+      },
+      "yolo": {
+        "architecture": "yolov8s-seg",
+        "weights": "models/yolo_best.pt",
+        "train_imgsz": 640,
+        "train_epochs": 120,
+        "train_batch": 16,
+        "confidence": 0.15,
+        "roi_padding_px": 40
+      },
+      "unet": {
+        "architecture": "Unet",
+        "encoder": "efficientnet-b0",
+        "weights_dir": "models/unet_folds",
+        "weights_pattern": "UNet_fold{k}_best.pth",
+        "n_folds": 5,
+        "img_size": 384,
+        "num_classes": 3,
+        "tta": true
+      },
+      "postprocess": {
+        "olp_threshold": 0.65,
+        "fallback_olp_threshold": 0.8,
+        "min_blob_olp_px": 200,
+        "min_blob_other_px": 80
+      },
+      "image_label": {
+        "area_threshold_pct": 0.5
+      }
+    },
+    "weights_sha256": {
+      "yolo_best.pt": "3bcc8a01e274e366957f3b147da6f3cf5535b1be3abba40d796693cd243818b1",
+      "UNet_fold0_best.pth": "94b3c163f65a694c24087c061c0f4624095c307aff4ffeedfdda12b211c90ab2",
+      "UNet_fold1_best.pth": "5c0a168e633b9a266306af638960293f8b15d2ff700153ff8a69621b0fe7361b",
+      "UNet_fold2_best.pth": "48dfe47925f0e7c6bbd95d1e1a31359383f7bb3b57a66903214be199f520d0a9",
+      "UNet_fold3_best.pth": "f82e35dca6867cbc1cb6b4e26ed0b9b232e140d77d438a65c137159871ed1352",
+      "UNet_fold4_best.pth": "316d42c74dd7f5886a02f5255a1d0553f991c42e86e54a946f7b1e5752858063"
+    },
+    "python": "3.13.14",
+    "torch": "2.6.0+cu124",
+    "device": "cuda"
+  }
+}

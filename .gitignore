@@ -2,3 +2,6 @@
 .claude/
 .streamlit/secrets.toml
 feedback_data.zip
+# Clinician feedback images/metadata must never be committed
+feedback_data/
+paper/__pycache__/

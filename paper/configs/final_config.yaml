@@ -1,0 +1,47 @@
+# Final configuration of the model version evaluated in the paper
+# (89-image independent test set: 30 normal, 29 OLP, 30 other lesions).
+#
+# These values are the defaults of the deployed pipeline in ../app.py and are the
+# ONLY source of parameters for paper/olp_pipeline.py and paper/evaluate.py.
+# Paths are relative to the repository root.
+
+version: paper-v1.0
+
+classes:
+  0: normal
+  1: olp          # oral lichen planus
+  2: other        # other oral lesions
+
+# ── Stage 1: lesion detector (gate) ──────────────────────────────────────────
+yolo:
+  architecture: yolov8s-seg
+  weights: models/yolo_best.pt
+  train_imgsz: 640
+  train_epochs: 120
+  train_batch: 16
+  confidence: 0.15          # inference confidence threshold
+  roi_padding_px: 40        # padding added on each side of a detected box (original-image pixels)
+
+# ── Stage 2: 3-class segmentation (5-fold ensemble) ──────────────────────────
+unet:
+  architecture: Unet
+  encoder: efficientnet-b0
+  weights_dir: models/unet_folds
+  weights_pattern: "UNet_fold{k}_best.pth"
+  n_folds: 5
+  img_size: 384             # train AND inference resolution (square resize)
+  num_classes: 3
+  tta: true                 # identity + horizontal flip + vertical flip, softmax averaged
+
+# ── Post-processing ──────────────────────────────────────────────────────────
+postprocess:
+  olp_threshold: 0.65             # softmax probability needed to label a pixel OLP (YOLO ROI mode)
+  fallback_olp_threshold: 0.80    # stricter threshold when YOLO finds nothing and U-Net runs on the full image
+  min_blob_olp_px: 200            # connected components smaller than this are removed (measured in 384x384 crop space)
+  min_blob_other_px: 80           # idem for class "other"
+  # class "other" has no threshold: a pixel is "other" if p_other > p_normal and p_other > p_olp
+
+# ── Image-level label ────────────────────────────────────────────────────────
+image_label:
+  area_threshold_pct: 0.5   # both OLP and other area < 0.5% of the image -> normal;
+                            # otherwise the class with the larger area wins (ties -> OLP)

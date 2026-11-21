@@ -36,8 +36,8 @@ Colour overlay on original image
 - **Two-stage pipeline** — YOLO acts as a fast gate, UNet provides precise pixel-level classification
 - **5-fold ensemble** — averages predictions from 5 independently trained UNet checkpoints for stability
 - **Test-time augmentation (TTA)** — horizontal and vertical flip augmentation at inference for ~1% F1 boost
-- **Small blob filtering** — removes isolated false-positive predictions below a configurable pixel threshold
-- **Fallback mode** — if YOLO detects nothing, UNet runs on the full image automatically
+- **Small blob filtering** — removes isolated false-positive predictions below a configurable pixel threshold (200 px for OLP, 80 px for other)
+- **Fallback mode** — if YOLO detects nothing, UNet runs on the full image automatically with a stricter OLP threshold (0.80)
 - **Adjustable thresholds** — YOLO confidence, lichen probability, minimum blob size all tunable via sidebar
 - **Batch upload** — process multiple images at once, displayed in a responsive grid
 - **Feedback collection** — clinicians can mark predictions as correct or incorrect, with reasons, saving images and metadata locally for future retraining
@@ -46,29 +46,56 @@ Colour overlay on original image
 
 ## Model Details
 
+> The exact configuration, weights, scripts and results of the version evaluated in the paper are in
+> [`paper/`](paper/README.md) (git tag `v1.0-paper`). Parameters are defined once in
+> [`paper/configs/final_config.yaml`](paper/configs/final_config.yaml).
+
 ### Stage 1 — YOLOv8s-seg (Gate Detector)
 | Property | Value |
 |---|---|
-| Architecture | YOLOv8s-seg |
+| Architecture | YOLOv8s-seg (start from `yolov8s-seg.pt`) |
 | Input size | 640 × 640 |
 | Classes | 1 (lesion) |
-| Training data | ~746 images (lichen + other + normal) |
-| Labels source | Manual YOLO seg annotations |
-| mAP50 (seg) | 0.640 |
-| Precision | 0.735 |
-| Recall | 0.625 |
+| Training | 120 epochs, batch size 16, AdamW (lr0 5e-4), patience 25 |
+| Training data | 773 images: **588 train + 185 validation** (all lesion images + 20 % background images in train) |
+| Labels source | Manual YOLO seg annotations + polygons derived from the pixel masks |
+| Inference | confidence **0.15**, ROI padding **40 px** |
+| Validation (box) | P 0.735 · R 0.625 · mAP50 0.682 · mAP50-95 0.304 |
+| Validation (mask) | P 0.712 · R 0.617 · mAP50 0.640 · mAP50-95 0.269 |
+
+Validation metrics of `models/yolo_best.pt` on the 185 validation images (`paper/eval_yolo_val.py`;
+[`paper/results/yolo_val_metrics.json`](paper/results/yolo_val_metrics.json)). The validation split also selects the
+checkpoint, so these are not independent test metrics.
 
 ### Stage 2 — UNet 5-Fold Ensemble (Segmentation)
 | Property | Value |
 |---|---|
 | Architecture | UNet + EfficientNet-B0 encoder |
-| Input size | 256 × 256 |
+| Input size | **384 × 384** |
 | Classes | 3 (normal / lichen / other) |
-| Training data | ~932 samples (5-fold cross-validation) |
+| Training data | 939 images (327 normal / 302 OLP / 310 other), 5-fold stratified cross-validation |
 | Loss | HybridLoss = CrossEntropy(label_smoothing=0.1) + TverskyLoss(α=0.3, β=0.7) |
-| CV mean F1 | 0.645 ± 0.025 |
-| Production threshold | 0.65 (lichen softmax probability) |
-| Min blob filter | 200 pixels |
+| CV mean F1 (pixel-level OLP) | 0.661 ± 0.047 |
+| OLP threshold | 0.65 (softmax probability); **0.80** when YOLO finds nothing and UNet runs on the whole image |
+| Noise filter | components < **200 px** (OLP) and < **80 px** (other) removed |
+| Image-level label | OLP and other area both < **0.5 %** → normal, else the larger area wins |
+
+### Independent test set (89 images: 30 normal, 29 OLP, 30 other)
+Final pipeline, parameters above (`python paper/evaluate.py`, full tables in
+[`paper/results/metrics_summary.md`](paper/results/metrics_summary.md)):
+
+| Image level (one-vs-rest) | Accuracy | Sensitivity | Specificity | Precision | F1 |
+|---|---|---|---|---|---|
+| OLP | 70.8 % | 82.8 % | 65.0 % | 53.3 % | 0.649 |
+| Other | 83.1 % | 73.3 % | 88.1 % | 75.9 % | 0.746 |
+| Normal | 78.7 % | 43.3 % | 96.6 % | 86.7 % | 0.578 |
+
+3-class accuracy 66.3 %, macro-F1 0.657.
+
+| Pixel level | Dice (mean ± SD) | IoU (mean ± SD) | Specificity on lesion-free images |
+|---|---|---|---|
+| OLP (29 images) | 0.564 ± 0.324 | 0.457 ± 0.299 | 96.1 % |
+| Other (30 images) | 0.492 ± 0.347 | 0.395 ± 0.314 | 99.2 % |
 
 ---
 
@@ -78,20 +105,17 @@ Colour overlay on original image
 streamlit_app/
 ├── app.py                  # Main Streamlit application
 ├── feedback.py             # Feedback widget and data saving logic
-├── requirements.txt        # Python dependencies
+├── requirements.txt        # Python dependencies of the web app
+├── LICENSE                 # AGPL-3.0
 ├── README.md               # This file
+├── paper/                  # Paper version: config, training/eval code, results (see paper/README.md)
 ├── models/
-│   ├── yolo_best.pt        # YOLOv8s-seg checkpoint
-│   └── unet_folds/
-│       ├── UNet_fold0_best.pth
-│       ├── UNet_fold1_best.pth
-│       ├── UNet_fold2_best.pth
-│       ├── UNet_fold3_best.pth
-│       └── UNet_fold4_best.pth
-└── feedback_data/          # Auto-created, stores clinician feedback
-    ├── Success_Data/
-    ├── UNet_Bad_Mask/      # Cases where segmentation mask was wrong
-    └── UNet_Wrong_Class/   # Cases where lichen/other was misclassified
+│   ├── yolo_best.pt        # YOLOv8s-seg checkpoint (paper version)
+│   ├── unet_folds/
+│   │   ├── UNet_fold0_best.pth ... UNet_fold4_best.pth   # paper version (5-fold UNet)
+│   │   └── UNet++_+_scSE_fold*_best.pth                  # architecture comparison only
+│   └── unet_folds_v2/      # later fine-tuned UNet, selectable in the app (not the paper version)
+└── feedback_data/          # git-ignored; local-only fallback, clinical data must never be committed
 ```
 
 ---
@@ -152,7 +176,8 @@ Open `http://localhost:8501` in your browser.
 | YOLO confidence | 0.15 | Lower catches more lesions, higher reduces false alarms |
 | YOLO crop padding | 40 px | Extra margin around detected bbox before UNet |
 | Lichen threshold | 0.65 | Min softmax probability to classify a pixel as lichen |
-| Min blob pixels | 200 | Remove lichen predictions smaller than this area |
+| Min lichen blob (pixels) | 200 | Remove lichen predictions smaller than this area |
+| Min other-lesion blob (pixels) | 80 | Remove "other" predictions smaller than this area |
 | TTA | On | Test-time augmentation (flip ensemble at inference) |
 | YOLO gate | On | Disable to run UNet on full image always |
 | Images per row | 3 | Layout control |
@@ -174,15 +199,27 @@ Each feedback entry saves the original image, overlay image, and a JSON metadata
 
 ## Training
 
-Training notebooks are in the parent directory:
+Training, data-split and evaluation code of the paper version is in [`paper/`](paper/README.md):
 
-| Notebook | Purpose |
+| Script | Purpose |
 |---|---|
-| `lichen-unet-training.ipynb` | 5-fold CV training for UNet ensemble (run on Kaggle) |
-| `kaggle_yolo_train.ipynb` | YOLOv8s-seg training (run on Kaggle) |
-| `evaluate_ensemble.py` | Local threshold tuning, TTA, blob filter evaluation |
-| `gen_yolo_labels.py` | Generate YOLO seg labels from pixel masks |
-| `check_yolo_labels.py` | Visual QC of YOLO labels vs true masks |
+| `paper/prepare_yolo_data.py` | Build the YOLO seg dataset from pixel masks / annotations, 80/20 split (seed 42) |
+| `paper/train_yolo.py` | 20 % background filter + YOLOv8s-seg training (120 epochs, batch 16, 640 px) |
+| `paper/split_unet_folds.py` | Stratified 5-fold split of the U-Net data (`paper/data/folds.csv`) |
+| `paper/train_unet_5fold.py` | 5-fold U-Net (EfficientNet-B0, 384 px) training |
+| `paper/evaluate.py` | Dice, IoU, accuracy, sensitivity, specificity, precision, F1 and confusion matrices on the test set |
+| `paper/eval_yolo_val.py` | YOLO box/mask precision, recall, mAP on the validation split |
+| `paper/olp_pipeline.py` | Standalone inference pipeline (no web dependencies) |
+
+Exact library versions: `paper/requirements-paper.txt`. Data (clinical images) are not distributed, see `paper/data/README.md`.
+
+---
+
+## License
+
+[GNU AGPL-3.0](LICENSE). The detector is built on [Ultralytics YOLO](https://github.com/ultralytics/ultralytics) (AGPL-3.0),
+so the code and the weights derived from it are released under the same license. The clinical images, masks and annotations used
+to train/evaluate the models are not covered by this license and are not part of the repository.
 
 ---
 

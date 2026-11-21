@@ -406,7 +406,7 @@ for i in range(0, len(uploaded_files), row_cols):
                         unsafe_allow_html=True,
                     )
                 else:
-                    fallback_thresh = min(lichen_thresh + 0.10, 0.95)
+                    fallback_thresh = min(lichen_thresh + 0.15, 0.95)   # must match _run_inference_impl
                     st.markdown(
                         f"<span style='color:#e67e22;font-weight:bold'>"
                         f"⚠ YOLO: no lesion detected — UNet on full image (stricter threshold: {fallback_thresh:.2f})</span>",
