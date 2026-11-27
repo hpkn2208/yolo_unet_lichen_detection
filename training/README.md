@@ -6,7 +6,7 @@ pipelines, with command-line arguments, are in [`../ml/`](../ml/README.md).
 | Notebook | Trains | Output |
 |---|---|---|
 | [`yolov8-training.ipynb`](yolov8-training.ipynb) | YOLOv8s-seg lesion detector (1 class): 20 % background filter on the train split, 120 epochs, batch 16, 640 px, AdamW lr0 5e-4, patience 25 | `yolo_best.pt` → `models/yolo_best.pt` |
-| [`5fold-unet.ipynb`](5fold-unet.ipynb) | 5-fold U-Net, EfficientNet-B0 encoder, 3 classes (normal / OLP / other), 384 px, hybrid CE + Tversky loss; mean pixel-level OLP F1 0.631 ± 0.033 over the 5 validation folds | `UNet_fold{0-4}_best.pth` → `models/unet_folds_v2/` |
+| [`5fold-unet.ipynb`](5fold-unet.ipynb) | 5-fold U-Net, EfficientNet-B0 encoder, 3 classes (normal / OLP / other), 384 px, hybrid CE + Tversky loss; mean pixel-level OLP F1 0.661 ± 0.047 over the 5 validation folds. The notebook also trains a UNet++ variant for comparison. | `UNet_fold{0-4}_best.pth` → `models/unet_folds/` |
 
 ## Running them
 

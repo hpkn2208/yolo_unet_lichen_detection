@@ -13,21 +13,22 @@ All parameters live in one file: [`configs/final_config.yaml`](configs/final_con
 | Component | Setting |
 |---|---|
 | Detector | YOLOv8s-seg, 1 class (lesion), 640 × 640, 120 epochs, batch 16, AdamW lr0 5e-4, patience 25 |
-| Detector data | 598 train + 185 validation images (783) |
+| Detector data | 588 train + 185 validation images (773) |
 | Inference gate | YOLO confidence **0.15**, ROI padding **40 px** |
 | Segmenter | U-Net, EfficientNet-B0 encoder (ImageNet), 3 classes (normal / OLP / other), **384 × 384** input |
-| Segmenter data | 941 images (normal / OLP / other), **5-fold** stratified CV (seed 42), ensemble of the 5 fold models, TTA = identity + h-flip + v-flip |
+| Segmenter data | 939 images (327 normal, 302 OLP, 310 other), **5-fold** stratified CV (seed 42), ensemble of the 5 fold models, TTA = identity + h-flip + v-flip |
 | Loss / optimisation | CE (label smoothing 0.1, class weights) + Tversky (α 0.3, β 0.7); AdamW lr 5e-4 (1e-4 after unfreezing), wd 2e-3, cosine, batch 4, ≤ 60 epochs, patience 15; best checkpoint by pixel-level OLP F1 |
 | OLP threshold | softmax p(OLP) ≥ **0.65** (ROI mode); **0.80** when YOLO finds nothing and U-Net runs on the whole image |
 | Noise filter | connected components < **200 px** (OLP) and < **80 px** (other) removed, measured on the 384 × 384 crop |
 | Image label | both areas < **0.5 %** of the image → normal; otherwise the class with the larger area |
-| Independent test set | 89 images: 30 normal, 29 OLP, 30 other (never used for training / selection) |
+| Independent test set | 89 images: 30 normal, 29 OLP, 30 other; none of them is in the training data (checked by image content, see [`data/README.md`](data/README.md)) |
 
 Weights: `models/yolo_best.pt` (= `best.pt` of the Kaggle run `lesion_seg_v2`, identical tensors) and
-`models/unet_folds_v2/UNet_fold{0-4}_best.pth` (output of `5fold-unet.ipynb`: scoring the 5 checkpoints on their
-validation folds reproduces the notebook's per-fold F1 0.579 / 0.641 / 0.659 / 0.656 / 0.620, mean 0.631 ± 0.033);
-SHA-256 in [`weights_sha256.txt`](weights_sha256.txt). The other files in `models/` (`unet_folds/`, an earlier
-5-fold run, and `UNet++_+_scSE_*`, an architecture comparison) are not the default model.
+`models/unet_folds/UNet_fold{0-4}_best.pth` (output of `training/5fold-unet.ipynb`: scoring the 5 checkpoints on their
+validation folds reproduces the notebook's per-fold F1 0.687 / 0.689 / 0.627 / 0.596 / 0.707, mean 0.661 ± 0.047);
+SHA-256 in [`weights_sha256.txt`](weights_sha256.txt). The other files in `models/` are not part of the evaluated model:
+`UNet++_+_scSE_*` is an architecture comparison, and `unet_folds_v2/` is an experimental run on a larger image set that
+includes the 30 Normal test images.
 
 ## 2. Install
 
@@ -78,6 +79,8 @@ training-image list of the original run.
 * Splits are by image, not by patient (patient IDs are not available); fold metrics are measured on the validation
   fold that also selects the checkpoint (slightly optimistic). YOLO validation metrics are likewise validation, not test, metrics.
 * The 89-image test set is small (29–30 images per class); no confidence intervals are provided.
+* The development set contains a few look-alike images (13 pairs, see [`data/README.md`](data/README.md)); 12 of the pairs fall into
+  different folds, so the cross-validation scores are slightly optimistic.
 
 ## 6. License
 

@@ -16,9 +16,33 @@ What is provided instead:
 
 | Set | Images | Details |
 |---|---|---|
-| YOLOv8s-seg train / val | 598 / 185 (783) | 1 class ("lesion"); all lesion images + 20 % background images in train (`ml/train_yolo.py`) |
-| U-Net development (5-fold CV) | 941 | normal, OLP and other lesions; stratified 5-fold, ~775 train / ~194 validation per fold |
-| Independent test set | 89 | 30 normal, 29 OLP, 30 other lesions; never used for training or model selection |
+| YOLOv8s-seg train / val | 588 / 185 (773) | 1 class ("lesion"); all lesion images + 20 % background images in train (`ml/train_yolo.py`) |
+| U-Net development (5-fold CV) | 939 | 327 normal, 302 OLP, 310 other lesions; stratified 5-fold, ~751 train / ~188 validation per fold |
+| Independent test set | 89 | 30 normal, 29 OLP, 30 other lesions; not part of the training data of either model (see below) and never used for model selection |
 
 Splits are by **image**, not by patient (patient identifiers are not available in the dataset), so
 a patient with several photographs may appear on both sides of a split.
+
+## Test-set independence check
+
+The 89 test images were compared with every image used for training, by content and not only by file name:
+
+| Comparison | Result |
+|---|---|
+| Test set vs. the 939 U-Net development images | 0 shared images |
+| Test set vs. the YOLO data (746 train images before background filtering, 185 validation) | 0 shared images |
+
+Three checks were combined: a SHA-256 hash of each file (identical files), the similarity of down-scaled grey-level images
+(re-saved or re-named copies), and SIFT feature matching with a full affine transform (cropped or re-scaled copies). The
+development images are 512 x 512 crops around the lesion, so the matching was calibrated on simulated crops of the test
+images (it detects about 90 % of them) and every pair close to the decision threshold was inspected by eye.
+
+Notes for readers who compare the CSV files:
+
+* 30 test images of the *other* class have the same file name as a development image (for example `bs1`) but are different
+  photographs. The development images are crops, the test images are the original photographs.
+* The *normal* test images (`n1`-`n40`) are not in the development set.
+* The data contain no patient identifiers, so the check shows that no image is shared between training and test, not that
+  no patient is.
+* The development set contains 13 look-alike pairs (4 identical files, 1 re-compressed copy and 8 very similar photographs);
+  12 of them are placed in different folds.

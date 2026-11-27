@@ -57,7 +57,7 @@ Colour overlay on original image
 | Input size | 640 × 640 |
 | Classes | 1 (lesion) |
 | Training | 120 epochs, batch size 16, AdamW (lr0 5e-4), patience 25 |
-| Training data | 783 images: **598 train + 185 validation** (all lesion images + 20 % background images in train) |
+| Training data | 773 images: **588 train + 185 validation** (all lesion images + 20 % background images in train) |
 | Labels source | Manual YOLO seg annotations + polygons derived from the pixel masks |
 | Inference | confidence **0.15**, ROI padding **40 px** |
 | Validation (box) | P 0.735 · R 0.625 · mAP50 0.682 · mAP50-95 0.304 |
@@ -73,9 +73,9 @@ checkpoint, so these are not independent test metrics.
 | Architecture | UNet + EfficientNet-B0 encoder |
 | Input size | **384 × 384** |
 | Classes | 3 (normal / lichen / other) |
-| Training data | 941 images (normal / OLP / other), 5-fold stratified cross-validation |
+| Training data | 939 images (327 normal / 302 OLP / 310 other), 5-fold stratified cross-validation |
 | Loss | HybridLoss = CrossEntropy(label_smoothing=0.1) + TverskyLoss(α=0.3, β=0.7) |
-| CV mean F1 (pixel-level OLP) | 0.631 ± 0.033 |
+| CV mean F1 (pixel-level OLP) | 0.661 ± 0.047 |
 | OLP threshold | 0.65 (softmax probability); **0.80** when YOLO finds nothing and UNet runs on the whole image |
 | Noise filter | components < **200 px** (OLP) and < **80 px** (other) removed |
 | Image-level label | OLP and other area both < **0.5 %** → normal, else the larger area wins |
@@ -86,16 +86,16 @@ Final pipeline, parameters above (`python ml/evaluate.py`, full tables in
 
 | Image level (one-vs-rest) | Accuracy | Sensitivity | Specificity | Precision | F1 |
 |---|---|---|---|---|---|
-| OLP | 73.0 % | 69.0 % | 75.0 % | 57.1 % | 0.625 |
-| Other | 84.3 % | 80.0 % | 86.4 % | 75.0 % | 0.774 |
-| Normal | 86.5 % | 66.7 % | 96.6 % | 90.9 % | 0.769 |
+| OLP | 70.8 % | 82.8 % | 65.0 % | 53.3 % | 0.649 |
+| Other | 83.1 % | 73.3 % | 88.1 % | 75.9 % | 0.746 |
+| Normal | 78.7 % | 43.3 % | 96.6 % | 86.7 % | 0.578 |
 
-3-class accuracy 71.9 %, macro-F1 0.723.
+3-class accuracy 66.3 %, macro-F1 0.657. The main error is false OLP calls on normal mucosa (14 of the 30 normal images).
 
 | Pixel level | Dice (mean ± SD) | IoU (mean ± SD) | Specificity on lesion-free images |
 |---|---|---|---|
-| OLP (29 images) | 0.541 ± 0.361 | 0.448 ± 0.327 | 98.8 % |
-| Other (30 images) | 0.538 ± 0.323 | 0.431 ± 0.298 | 99.1 % |
+| OLP (29 images) | 0.564 ± 0.324 | 0.457 ± 0.299 | 96.1 % |
+| Other (30 images) | 0.492 ± 0.347 | 0.395 ± 0.314 | 99.2 % |
 
 ---
 
@@ -112,9 +112,11 @@ streamlit_app/
 ├── training/            # Kaggle training notebooks (YOLOv8-seg, 5-fold U-Net)
 ├── models/
 │   ├── yolo_best.pt        # YOLOv8s-seg checkpoint
-│   ├── unet_folds_v2/
-│   │   └── UNet_fold0_best.pth ... UNet_fold4_best.pth   # 5-fold UNet (default in the app)
-│   └── unet_folds/         # earlier 5-fold run (v1, selectable in the app) + UNet++ comparison
+│   ├── unet_folds/
+│   │   ├── UNet_fold0_best.pth ... UNet_fold4_best.pth   # 5-fold UNet (v1, default in the app)
+│   │   └── UNet++_+_scSE_fold*_best.pth                  # architecture comparison only
+│   └── unet_folds_v2/      # experimental run on a larger image set that includes the 30 Normal test images;
+│                           # selectable in the app, not used for any reported result
 └── feedback_data/          # git-ignored; local-only fallback, clinical data must never be committed
 ```
 
@@ -137,7 +139,7 @@ pip install -r requirements.txt
 ```
 models/
 ├── yolo_best.pt                    ← download from Kaggle training output
-└── unet_folds_v2/
+└── unet_folds/
     ├── UNet_fold0_best.pth         ← from Kaggle: /kaggle/working/UNet_fold0_best.pth
     ├── UNet_fold1_best.pth
     ├── UNet_fold2_best.pth
